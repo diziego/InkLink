@@ -1,10 +1,15 @@
-import Link from "next/link";
-import { BRAND } from "@/config/brand";
+import { AppHeader } from "@/components/app-header";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { FieldMetric } from "@/components/ui/field-metric";
+import { MockNotice } from "@/components/ui/mock-notice";
+import { SectionHeading } from "@/components/ui/section-heading";
 import {
   mockProviderCapabilities,
   mockProviderQualityMetrics,
   mockProviders,
 } from "@/lib/mock-data";
+import { formatValue } from "@/lib/format";
 import type { ProviderProfile } from "@/types";
 
 const pendingProviders = mockProviders.filter(
@@ -18,32 +23,21 @@ export default function AdminPage() {
   return (
     <main className="min-h-screen bg-zinc-100 px-6 py-8 text-zinc-950 sm:px-10 lg:px-16">
       <div className="mx-auto max-w-6xl">
-        <header className="flex items-center justify-between">
-          <Link href="/" className="text-lg font-semibold">
-            {BRAND.logoText}
-          </Link>
-          <Link href="/" className="text-sm text-zinc-600 hover:text-zinc-950">
-            Back to home
-          </Link>
-        </header>
+        <AppHeader />
 
         <section className="grid gap-8 py-14 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
           <div>
-            <p className="text-sm font-medium uppercase tracking-[0.2em] text-zinc-500">
-              Admin verification
-            </p>
-            <h1 className="mt-4 text-4xl font-semibold sm:text-5xl">
-              Review provider readiness before routing merchant work.
-            </h1>
-            <p className="mt-5 text-lg leading-8 text-zinc-700">
-              This mocked admin screen shows how verification, tier, quality,
-              SLA, and capacity are reviewed before they influence merchant
-              recommendations.
-            </p>
-            <div className="mt-8 rounded-md border border-amber-300 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+            <SectionHeading
+              eyebrow="Admin verification"
+              title="Review provider readiness before routing merchant work."
+              description="This mocked admin screen shows how verification, tier, quality, SLA, and capacity are reviewed before they influence merchant recommendations."
+            />
+            <div className="mt-8">
+              <MockNotice>
               Mocked MVP flow: review actions are display-only. No provider
               status, tier, or capacity changes are saved until Supabase and
               admin actions are added.
+              </MockNotice>
             </div>
           </div>
 
@@ -97,7 +91,7 @@ function AdminSummary() {
   );
 
   return (
-    <article className="rounded-md border border-zinc-200 bg-white p-5 shadow-sm">
+    <Card className="shadow-sm">
       <p className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-500">
         Mock marketplace health
       </p>
@@ -114,7 +108,7 @@ function AdminSummary() {
         The routing engine rewards verified status and stronger tiers, then
         checks whether open capacity can fit the merchant order quantity.
       </p>
-    </article>
+    </Card>
   );
 }
 
@@ -128,7 +122,7 @@ function ProviderReviewCard({ provider }: { provider: ProviderProfile }) {
   const openCapacity = provider.dailyCapacityUnits - provider.currentCapacityUsed;
 
   return (
-    <article className="rounded-md border border-zinc-200 bg-white p-5 shadow-sm">
+    <Card className="shadow-sm">
       <div className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-500">
@@ -140,11 +134,11 @@ function ProviderReviewCard({ provider }: { provider: ProviderProfile }) {
             {provider.zip}
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
-            <StatusPill label={formatValue(provider.verificationStatus)} />
-            <StatusPill label={`${formatValue(provider.tier)} tier`} />
-            <StatusPill
-              label={provider.supportsLocalPickup ? "Local pickup" : "No pickup"}
-            />
+            <Badge>{formatValue(provider.verificationStatus)}</Badge>
+            <Badge>{`${formatValue(provider.tier)} tier`}</Badge>
+            <Badge>
+              {provider.supportsLocalPickup ? "Local pickup" : "No pickup"}
+            </Badge>
           </div>
           <p className="mt-5 text-sm leading-6 text-zinc-700">
             Admin decision preview: moving this provider from pending to
@@ -159,19 +153,19 @@ function ProviderReviewCard({ provider }: { provider: ProviderProfile }) {
             Review signals
           </h4>
           <dl className="mt-4 grid gap-4 sm:grid-cols-2">
-            <ReviewMetric label="Print methods" value={capability?.printMethods.map(formatValue).join(", ") ?? "None"} />
-            <ReviewMetric label="Garments" value={capability?.garmentTypes.map(formatValue).join(", ") ?? "None"} />
-            <ReviewMetric label="Turnaround" value={`${provider.turnaroundSlaDays} days`} />
-            <ReviewMetric label="Capacity" value={`${provider.currentCapacityUsed}/${provider.dailyCapacityUnits} used`} />
-            <ReviewMetric label="Quality" value={`${metrics?.qualityScore ?? 0}/100`} />
-            <ReviewMetric
+            <FieldMetric label="Print methods" value={capability?.printMethods.map(formatValue).join(", ") ?? "None"} />
+            <FieldMetric label="Garments" value={capability?.garmentTypes.map(formatValue).join(", ") ?? "None"} />
+            <FieldMetric label="Turnaround" value={`${provider.turnaroundSlaDays} days`} />
+            <FieldMetric label="Capacity" value={`${provider.currentCapacityUsed}/${provider.dailyCapacityUnits} used`} />
+            <FieldMetric label="Quality" value={`${metrics?.qualityScore ?? 0}/100`} />
+            <FieldMetric
               label="On-time"
               value={`${Math.round((metrics?.onTimeDeliveryRate ?? 0) * 100)}%`}
             />
           </dl>
         </div>
       </div>
-    </article>
+    </Card>
   );
 }
 
@@ -182,7 +176,7 @@ function VerifiedProviderCard({ provider }: { provider: ProviderProfile }) {
   const openCapacity = provider.dailyCapacityUnits - provider.currentCapacityUsed;
 
   return (
-    <article className="rounded-md border border-zinc-200 bg-white p-5 shadow-sm">
+    <Card className="shadow-sm">
       <p className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-500">
         {formatValue(provider.tier)} tier
       </p>
@@ -191,12 +185,12 @@ function VerifiedProviderCard({ provider }: { provider: ProviderProfile }) {
         {provider.city}, {provider.state} {provider.zip}
       </p>
       <dl className="mt-5 grid gap-3">
-        <ReviewMetric label="Verification" value={formatValue(provider.verificationStatus)} />
-        <ReviewMetric label="Open capacity" value={`${openCapacity} units`} />
-        <ReviewMetric label="SLA" value={`${provider.turnaroundSlaDays} days`} />
-        <ReviewMetric label="Quality" value={`${metrics?.qualityScore ?? 0}/100`} />
+        <FieldMetric label="Verification" value={formatValue(provider.verificationStatus)} />
+        <FieldMetric label="Open capacity" value={`${openCapacity} units`} />
+        <FieldMetric label="SLA" value={`${provider.turnaroundSlaDays} days`} />
+        <FieldMetric label="Quality" value={`${metrics?.qualityScore ?? 0}/100`} />
       </dl>
-    </article>
+    </Card>
   );
 }
 
@@ -209,32 +203,4 @@ function SummaryMetric({ label, value }: { label: string; value: string }) {
       <dd className="mt-2 text-2xl font-semibold text-zinc-950">{value}</dd>
     </div>
   );
-}
-
-function ReviewMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">
-        {label}
-      </dt>
-      <dd className="mt-1 text-sm font-semibold leading-6 text-zinc-950">
-        {value}
-      </dd>
-    </div>
-  );
-}
-
-function StatusPill({ label }: { label: string }) {
-  return (
-    <span className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-1 text-sm text-zinc-700">
-      {label}
-    </span>
-  );
-}
-
-function formatValue(value: string) {
-  return value
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
 }

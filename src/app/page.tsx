@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { AppHeader } from "@/components/app-header";
+import { Card } from "@/components/ui/card";
+import { SectionHeading } from "@/components/ui/section-heading";
 import { BRAND } from "@/config/brand";
 
 const howItWorks = [
@@ -27,25 +30,7 @@ export default function Home() {
         <div className="absolute inset-0 -z-10 bg-zinc-950/70" />
 
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-16">
-          <header className="flex items-center justify-between">
-            <Link href="/" className="text-lg font-semibold">
-              {BRAND.logoText}
-            </Link>
-            <nav
-              aria-label="Primary navigation"
-              className="hidden items-center gap-6 text-sm text-zinc-300 sm:flex"
-            >
-              <Link href="/merchant" className="transition hover:text-white">
-                Merchants
-              </Link>
-              <Link href="/provider" className="transition hover:text-white">
-                Providers
-              </Link>
-              <Link href="/admin" className="transition hover:text-white">
-                Admin
-              </Link>
-            </nav>
-          </header>
+          <AppHeader theme="dark" />
 
           <div className="max-w-3xl py-10">
             <p className="mb-5 text-sm font-medium uppercase tracking-[0.22em] text-zinc-300">
@@ -78,25 +63,18 @@ export default function Home() {
 
       <section className="bg-white px-6 py-20 text-zinc-950 sm:px-10 lg:px-16">
         <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-[0.85fr_1.15fr]">
-          <div>
-            <p className="text-sm font-medium uppercase tracking-[0.18em] text-zinc-500">
-              How it works
-            </p>
-            <h2 className="mt-3 text-3xl font-semibold">
-              A clearer path from order intake to local production.
-            </h2>
-          </div>
+          <SectionHeading
+            eyebrow="How it works"
+            title="A clearer path from order intake to local production."
+          />
           <div className="grid gap-4 md:grid-cols-3">
             {howItWorks.map((step, index) => (
-              <article
-                key={step}
-                className="rounded-md border border-zinc-200 bg-zinc-50 p-5"
-              >
+              <Card key={step} tone="subtle">
                 <p className="text-sm font-semibold text-zinc-500">
                   0{index + 1}
                 </p>
                 <p className="mt-4 text-base leading-7 text-zinc-700">{step}</p>
-              </article>
+              </Card>
             ))}
           </div>
         </div>
@@ -178,7 +156,7 @@ function BenefitPanel({
   cta: string;
 }) {
   return (
-    <article className="rounded-md border border-zinc-200 bg-white p-7">
+    <Card className="p-7">
       <p className="text-sm font-medium uppercase tracking-[0.18em] text-zinc-500">
         {eyebrow}
       </p>
@@ -197,6 +175,6 @@ function BenefitPanel({
       >
         {cta}
       </Link>
-    </article>
+    </Card>
   );
 }

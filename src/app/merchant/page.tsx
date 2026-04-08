@@ -1,5 +1,10 @@
 import Link from "next/link";
-import { BRAND } from "@/config/brand";
+import { AppHeader } from "@/components/app-header";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { FieldMetric } from "@/components/ui/field-metric";
+import { MockNotice } from "@/components/ui/mock-notice";
+import { SectionHeading } from "@/components/ui/section-heading";
 import {
   mockBlankInventory,
   mockMerchantOrders,
@@ -62,6 +67,48 @@ const factorLabels = {
 
 const factorOrder = Object.keys(factorLabels) as RoutingFactor[];
 
+const demoScenarios = [
+  {
+    label: "Local tee restock",
+    values: {
+      fulfillmentZip: "90401",
+      fulfillmentGoal: "local_first",
+      localPickupPreferred: "true",
+      garmentType: "t_shirt",
+      quantity: "72",
+      preferredBlankBrand: "Los Angeles Apparel",
+      preferredBlankStyle: "1801GD Garment Dye Tee",
+    },
+  },
+  {
+    label: "Premium tote bundle",
+    values: {
+      fulfillmentZip: "91103",
+      fulfillmentGoal: "premium_blank",
+      localPickupPreferred: "false",
+      garmentType: "tote",
+      quantity: "80",
+      preferredBlankBrand: "econscious",
+      preferredBlankStyle: "Organic Cotton Tote",
+    },
+  },
+  {
+    label: "Fast hoodie sample",
+    values: {
+      fulfillmentZip: "90802",
+      fulfillmentGoal: "fastest_turnaround",
+      localPickupPreferred: "false",
+      garmentType: "hoodie",
+      quantity: "36",
+      preferredBlankBrand: "Independent Trading Co.",
+      preferredBlankStyle: "IND4000 Heavyweight Hoodie",
+    },
+  },
+] satisfies {
+  label: string;
+  values: Record<string, string>;
+}[];
+
 const defaultOrder = mockMerchantOrders[0];
 const defaultItem = defaultOrder.items[0];
 const defaultMerchant = mockMerchants.find(
@@ -81,40 +128,34 @@ export default async function MerchantPage({ searchParams }: MerchantPageProps) 
   const formValues = getOrderFormValues(resolvedSearchParams);
   const order = buildMockOrder(formValues);
   const recommendations = recommendMockProvidersForOrder(order).slice(0, 3);
+  const topRecommendation = recommendations[0];
 
   return (
     <main className="min-h-screen bg-zinc-950 px-6 py-8 text-white sm:px-10 lg:px-16">
       <div className="mx-auto max-w-6xl">
-        <header className="flex items-center justify-between">
-          <Link href="/" className="text-lg font-semibold">
-            {BRAND.logoText}
-          </Link>
-          <Link href="/" className="text-sm text-zinc-300 hover:text-white">
-            Back to home
-          </Link>
-        </header>
+        <AppHeader theme="dark" />
 
         <section className="grid gap-8 py-14 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
           <div>
-            <p className="text-sm font-medium uppercase tracking-[0.2em] text-zinc-400">
-              Merchant workspace
-            </p>
-            <h1 className="mt-4 text-4xl font-semibold sm:text-5xl">
-              Create a DTG order and compare local providers.
-            </h1>
-            <p className="mt-5 text-lg leading-8 text-zinc-300">
-              This screen uses mocked order inputs and the deterministic routing
-              engine. No auth, database writes, payment, or live carrier quotes
-              are active yet.
-            </p>
-            <div className="mt-8 rounded-md border border-amber-300/30 bg-amber-300/10 p-4 text-sm leading-6 text-amber-100">
-              Mocked MVP flow: changing the form rebuilds a temporary order from
-              URL values and reruns provider scoring against static Southern
-              California sample data.
+            <SectionHeading
+              eyebrow="Merchant workspace"
+              title="Create a DTG order and compare local providers."
+              description="This screen uses mocked order inputs and the deterministic routing engine. No auth, database writes, payment, or live carrier quotes are active yet."
+              theme="dark"
+            />
+            <div className="mt-8">
+              <MockNotice tone="dark">
+                Mocked MVP flow: changing the form rebuilds a temporary order
+                from URL values and reruns provider scoring against static
+                Southern California sample data.
+              </MockNotice>
             </div>
           </div>
 
-          <OrderEntryForm values={formValues} />
+          <div className="grid gap-4">
+            <DemoScenarioSwitcher />
+            <OrderEntryForm values={formValues} />
+          </div>
         </section>
 
         <section className="pb-16">
@@ -132,6 +173,10 @@ export default async function MerchantPage({ searchParams }: MerchantPageProps) 
               Print method: DTG
             </p>
           </div>
+
+          {topRecommendation ? (
+            <FirstRankSummary recommendation={topRecommendation} />
+          ) : null}
 
           <div className="grid gap-5">
             {recommendations.map((recommendation, index) => (
@@ -282,6 +327,78 @@ function OrderEntryForm({ values }: { values: OrderFormValues }) {
   );
 }
 
+function DemoScenarioSwitcher() {
+  return (
+    <Card className="border-white/15 bg-white/10 text-white">
+      <p className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-400">
+        Demo presets
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {demoScenarios.map((scenario) => (
+          <Link
+            key={scenario.label}
+            href={`/merchant?${new URLSearchParams(scenario.values).toString()}`}
+            className="rounded-md border border-white/15 px-3 py-2 text-sm text-zinc-100 transition hover:border-white/40 hover:bg-white/10"
+          >
+            {scenario.label}
+          </Link>
+        ))}
+      </div>
+      <p className="mt-3 text-sm leading-6 text-zinc-300">
+        Presets only change mocked URL values. The form below still drives the
+        recommendation results.
+      </p>
+    </Card>
+  );
+}
+
+function FirstRankSummary({
+  recommendation,
+}: {
+  recommendation: ProviderRecommendation;
+}) {
+  const strongestFactors = factorOrder
+    .map((factor) => ({
+      factor,
+      ...recommendation.factorBreakdown[factor],
+    }))
+    .sort((first, second) => second.weightedScore - first.weightedScore)
+    .slice(0, 3);
+
+  return (
+    <Card className="mb-5 border-emerald-200 bg-emerald-50 text-zinc-950">
+      <div className="grid gap-4 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-emerald-700">
+            Why this provider ranked first
+          </p>
+          <h3 className="mt-2 text-2xl font-semibold">
+            {recommendation.providerName}
+          </h3>
+          <p className="mt-2 text-sm leading-6 text-zinc-700">
+            Strongest weighted signals from the transparent routing score.
+          </p>
+        </div>
+        <div className="grid gap-3 md:grid-cols-3">
+          {strongestFactors.map((factor) => (
+            <div
+              key={factor.factor}
+              className="rounded-md border border-emerald-200 bg-white p-3"
+            >
+              <p className="text-sm font-semibold">
+                {factorLabels[factor.factor]}
+              </p>
+              <p className="mt-1 text-sm text-zinc-600">
+                {factor.score}/100 - weighted {factor.weightedScore}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 function RecommendationCard({
   rank,
   recommendation,
@@ -292,7 +409,7 @@ function RecommendationCard({
   const notes = recommendation.operationalNotes;
 
   return (
-    <article className="rounded-md border border-white/15 bg-white p-5 text-zinc-950">
+    <Card className="border-white/15">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-sm font-semibold text-zinc-500">Rank {rank}</p>
@@ -312,20 +429,20 @@ function RecommendationCard({
       </div>
 
       <dl className="mt-5 grid gap-3 border-y border-zinc-200 py-5 sm:grid-cols-5">
-        <OperationalNote label="Turnaround" value={`${notes.estimatedTurnaroundDays} days`} />
-        <OperationalNote
+        <FieldMetric label="Turnaround" value={`${notes.estimatedTurnaroundDays} days`} />
+        <FieldMetric
           label="Shipping"
           value={`$${notes.estimatedShippingCostUsd.toFixed(2)}`}
         />
-        <OperationalNote
+        <FieldMetric
           label="Distance"
           value={`${notes.estimatedDistanceMiles} mi`}
         />
-        <OperationalNote
+        <FieldMetric
           label="Capacity"
           value={`${notes.availableCapacityUnits}/${notes.requestedUnits} units`}
         />
-        <OperationalNote
+        <FieldMetric
           label="Pickup"
           value={notes.localPickupSupported ? "Supported" : "Not supported"}
         />
@@ -340,36 +457,22 @@ function RecommendationCard({
             const breakdown = recommendation.factorBreakdown[factor];
 
             return (
-              <div
-                key={factor}
-                className="rounded-md border border-zinc-200 bg-zinc-50 p-3"
-              >
+              <Card key={factor} tone="subtle" className="p-3">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-sm font-semibold">{factorLabels[factor]}</p>
-                  <p className="text-sm text-zinc-600">
+                  <Badge>
                     {breakdown.score}/100 - w{breakdown.weight}
-                  </p>
+                  </Badge>
                 </div>
                 <p className="mt-2 text-sm leading-6 text-zinc-600">
                   {breakdown.note}
                 </p>
-              </div>
+              </Card>
             );
           })}
         </div>
       </div>
-    </article>
-  );
-}
-
-function OperationalNote({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">
-        {label}
-      </dt>
-      <dd className="mt-1 text-sm font-semibold text-zinc-950">{value}</dd>
-    </div>
+    </Card>
   );
 }
 
