@@ -16,3 +16,4 @@ export type {
   UserRole,
   VerificationStatus,
 } from "./marketplace";
+export type { Database, Json } from "./database";

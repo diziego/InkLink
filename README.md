@@ -25,6 +25,8 @@ InkLink models a focused marketplace flow:
 
 The current app is a mocked MVP demo. It is designed to show the product workflow, data model direction, and routing logic before backend wiring.
 
+Supabase foundation is now included for the next migration phase, but the current UI still reads from local mock data unless explicitly migrated.
+
 ## Target Users
 
 - Small apparel brands testing local fulfillment.
@@ -59,6 +61,10 @@ The current app is a mocked MVP demo. It is designed to show the product workflo
 - Admin provider verification/review demo at `/admin`.
 - Shared UI components for headers, cards, badges, section headings, stat cards, notices, and metrics.
 - Strongly typed mock marketplace data for merchants, providers, capabilities, inventory, orders, and quality metrics.
+- Supabase wiring foundation:
+  - environment variable support
+  - browser/server/service-role helpers
+  - initial SQL migration structure aligned to the current domain model
 
 ## Routing Engine
 
@@ -102,13 +108,15 @@ Ready for future integration:
 - Typed marketplace models in `src/types`
 - Mock seed datasets in `src/lib/mock-data`
 - Routing engine API in `src/lib/routing`
+- Supabase helper layer in `src/lib/supabase`
+- Initial schema in `supabase/migrations`
 - Merchant recommendation screen wired to the routing engine
 - Provider/admin screens that display routing-relevant provider signals
 
 Not implemented yet:
 
-- Supabase auth
-- Supabase database schema
+- Supabase auth UI flows
+- Live reads/writes from the current pages
 - Persistent order creation
 - Provider profile editing
 - Admin verification mutations
@@ -124,7 +132,6 @@ Not implemented yet:
 
 Planned stack additions:
 
-- Supabase for auth, Postgres, and storage
 - Zod for server-side form validation
 - shadcn/ui only where it clearly reduces UI repetition
 
@@ -134,6 +141,20 @@ Install dependencies:
 
 ```bash
 npm install
+```
+
+Create local environment variables:
+
+```bash
+cp .env.example .env.local
+```
+
+Add your Supabase project values to `.env.local` when you are ready to test live persistence code:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...
 ```
 
 Run the development server:
@@ -162,6 +183,20 @@ npm run build
 
 Note: the app currently uses `next/font/google` for Geist. A production build may need network access to fetch font assets if they are not already cached.
 
+Apply the initial Supabase schema:
+
+```bash
+supabase db push
+```
+
+Or run the SQL in:
+
+```text
+supabase/migrations/20260408_0001_initial_schema.sql
+```
+
+The current pages still work without live Supabase data. The schema and helpers are in place so the app can migrate gradually instead of switching all screens at once.
+
 ## Deployment
 
 The current mocked MVP is ready to deploy as a standard Next.js app on Vercel.
@@ -172,7 +207,7 @@ Recommended Vercel settings:
 - Install command: `npm install`
 - Build command: `npm run build`
 - Output directory: leave as the Next.js default
-- Environment variables: none required for the current mocked demo
+- Environment variables: optional for the current mocked demo, required once live Supabase-backed features are wired
 
 Suggested demo routes:
 
