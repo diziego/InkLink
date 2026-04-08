@@ -62,6 +62,18 @@ export default function ProviderPage() {
           <ProfilePanel />
         </section>
 
+        <section className="pb-8">
+          <div className="mb-6">
+            <p className="text-sm font-medium uppercase tracking-[0.2em] text-zinc-500">
+              Wholesale readiness
+            </p>
+            <h2 className="mt-2 text-3xl font-semibold">
+              Mock provider application details
+            </h2>
+          </div>
+          <WholesaleReadinessPanel />
+        </section>
+
         <section className="grid gap-5 pb-16 lg:grid-cols-3">
           <StatCard
             label="Verification and tier"
@@ -145,6 +157,85 @@ function ProfilePanel() {
             label="Premium blanks"
             value={`${featuredInventory.filter((blank) => blank.isPremiumBlank).length} styles`}
           />
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function WholesaleReadinessPanel() {
+  return (
+    <Card className="shadow-sm">
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div>
+          <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-500">
+            Business profile
+          </h3>
+          <dl className="mt-4 grid gap-4 sm:grid-cols-2">
+            <FieldMetric
+              label="Legal business name"
+              value={featuredProvider.legalBusinessName}
+            />
+            <FieldMetric
+              label="DBA / shop name"
+              value={featuredProvider.dbaName ?? featuredProvider.businessName}
+            />
+            <FieldMetric label="Contact name" value={featuredProvider.contactName} />
+            <FieldMetric
+              label="Business email"
+              value={featuredProvider.businessEmail}
+            />
+            <FieldMetric label="Phone" value={featuredProvider.phone} />
+            <FieldMetric
+              label="Business type"
+              value={featuredProvider.businessType}
+            />
+            <FieldMetric
+              label="Years in operation"
+              value={`${featuredProvider.yearsInOperation} years`}
+            />
+            <FieldMetric
+              label="Business address"
+              value={`${featuredProvider.streetAddress}, ${featuredProvider.city}, ${featuredProvider.state} ${featuredProvider.zip}`}
+            />
+          </dl>
+        </div>
+
+        <div>
+          <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-500">
+            Wholesale and sourcing
+          </h3>
+          <dl className="mt-4 grid gap-4 sm:grid-cols-2">
+            <FieldMetric
+              label="Seller's permit"
+              value={featuredProvider.sellersPermitNumber}
+            />
+            <FieldMetric
+              label="EIN / tax ID"
+              value={featuredProvider.einPlaceholder}
+            />
+            <FieldMetric
+              label="Fulfillment cutoff"
+              value={featuredProvider.fulfillmentCutoffTime}
+            />
+            <FieldMetric
+              label="Reorder lead time"
+              value={`${featuredProvider.reorderLeadTimeDays} days`}
+            />
+          </dl>
+          <div className="mt-5 rounded-md border border-zinc-200 bg-zinc-50 p-4">
+            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-500">
+              Supplier account readiness
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {featuredProvider.supplierAccountReadiness.map((account) => (
+                <Badge key={account}>{account}</Badge>
+              ))}
+            </div>
+            <p className="mt-4 text-sm leading-6 text-zinc-700">
+              {featuredProvider.blankSourcingNotes}
+            </p>
+          </div>
         </div>
       </div>
     </Card>

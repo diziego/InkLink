@@ -159,6 +159,51 @@ function ProviderReviewCard({ provider }: { provider: ProviderProfile }) {
             verification/tier score. Capacity remains constrained by{" "}
             {openCapacity} currently open units.
           </p>
+          <div className="mt-5 rounded-md border border-zinc-200 bg-zinc-50 p-4">
+            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-500">
+              Wholesale readiness review
+            </p>
+            <dl className="mt-4 grid gap-4 sm:grid-cols-2">
+              <FieldMetric label="Legal name" value={provider.legalBusinessName} />
+              <FieldMetric
+                label="DBA / shop name"
+                value={provider.dbaName ?? provider.businessName}
+              />
+              <FieldMetric label="Business email" value={provider.businessEmail} />
+              <FieldMetric label="Phone" value={provider.phone} />
+              <FieldMetric
+                label="Seller's permit"
+                value={provider.sellersPermitNumber}
+              />
+              <FieldMetric label="EIN / tax ID" value={provider.einPlaceholder} />
+              <FieldMetric label="Business type" value={provider.businessType} />
+              <FieldMetric
+                label="Years in operation"
+                value={`${provider.yearsInOperation} years`}
+              />
+              <FieldMetric
+                label="Fulfillment cutoff"
+                value={provider.fulfillmentCutoffTime}
+              />
+              <FieldMetric
+                label="Reorder lead time"
+                value={`${provider.reorderLeadTimeDays} days`}
+              />
+            </dl>
+            <div className="mt-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">
+                Supplier accounts
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {provider.supplierAccountReadiness.map((account) => (
+                  <Badge key={account}>{account}</Badge>
+                ))}
+              </div>
+              <p className="mt-3 text-sm leading-6 text-zinc-700">
+                {provider.blankSourcingNotes}
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="rounded-md border border-zinc-200 bg-zinc-50 p-4">

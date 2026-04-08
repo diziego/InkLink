@@ -59,17 +59,17 @@ const garmentTypeOptions = [
 ] satisfies { value: GarmentType; label: string }[];
 
 const factorLabels = {
-  printMethodCompatibility: "Print method",
+  printMethodCompatibility: "Print match",
   garmentCompatibility: "Garment fit",
-  blankAvailability: "Blank availability",
-  providerVerificationTier: "Verification and tier",
+  blankAvailability: "Blank fit",
+  providerVerificationTier: "Shop readiness",
   providerQuality: "Quality",
   turnaroundSla: "Turnaround",
   providerCapacity: "Capacity",
-  proximity: "Proximity",
+  proximity: "Location fit",
   shippingCost: "Shipping cost",
-  localPickupPreference: "Local pickup",
-  merchantFulfillmentGoal: "Merchant goal",
+  localPickupPreference: "Pickup option",
+  merchantFulfillmentGoal: "Order priority",
 } satisfies Record<RoutingFactor, string>;
 
 const factorOrder = Object.keys(factorLabels) as RoutingFactor[];
@@ -392,7 +392,8 @@ function FirstRankSummary({
             {recommendation.providerName}
           </h3>
           <p className="mt-2 text-sm leading-6 text-zinc-700">
-            Strongest weighted signals from the transparent routing score.
+            Strongest signals from the routing logic, shown here in a simpler
+            merchant-friendly rating.
           </p>
         </div>
         <div className="grid gap-3 md:grid-cols-3">
@@ -405,7 +406,7 @@ function FirstRankSummary({
                 {factorLabels[factor.factor]}
               </p>
               <p className="mt-1 text-sm text-zinc-600">
-                {factor.score}/100 - weighted {factor.weightedScore}
+                {formatScoreOutOfTen(factor.score)}/10
               </p>
             </div>
           ))}
@@ -424,6 +425,7 @@ function RecommendationCard({
 }) {
   const notes = recommendation.operationalNotes;
   const isTopRank = rank === 1;
+  const merchantScore = formatScoreOutOfTen(recommendation.totalScore);
 
   return (
     <Card className={isTopRank ? "border-emerald-200 shadow-sm" : "border-white/15 shadow-sm"}>
@@ -442,9 +444,10 @@ function RecommendationCard({
         </div>
         <div className="rounded-md bg-zinc-950 px-5 py-4 text-center text-white">
           <p className="text-xs uppercase tracking-[0.16em] text-zinc-400">
-            Score
+            Match rating
           </p>
-          <p className="text-3xl font-semibold">{recommendation.totalScore}</p>
+          <p className="text-3xl font-semibold">{merchantScore}</p>
+          <p className="mt-1 text-sm text-zinc-400">out of 10</p>
         </div>
       </div>
 
@@ -484,11 +487,11 @@ function RecommendationCard({
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-sm font-semibold">{factorLabels[factor]}</p>
                   <Badge>
-                    {breakdown.score}/100 - w{breakdown.weight}
+                    {formatScoreOutOfTen(breakdown.score)}/10
                   </Badge>
                 </div>
                 <p className="mt-2 text-sm leading-6 text-zinc-600">
-                  {breakdown.note}
+                  {getMerchantFactorExplanation(factor, breakdown.note)}
                 </p>
               </div>
             );
@@ -627,4 +630,38 @@ function getBooleanParam(
   }
 
   return fallback;
+}
+
+function formatScoreOutOfTen(score: number) {
+  const scaled = Math.max(1, Math.min(10, Math.round(score / 10)));
+
+  return scaled;
+}
+
+function getMerchantFactorExplanation(
+  factor: RoutingFactor,
+  fallbackNote: string,
+) {
+  const merchantExplanations = {
+    printMethodCompatibility:
+      "How well this shop fits the requested print method.",
+    garmentCompatibility:
+      "How comfortable this shop is with the garment type in this order.",
+    blankAvailability:
+      "How likely this shop can source or stock the blank you want.",
+    providerVerificationTier:
+      "How established and review-ready this shop looks in the marketplace.",
+    providerQuality:
+      "A blended view of print quality, reliability, and delivery consistency.",
+    turnaroundSla: "How strong this shop's standard turnaround looks.",
+    providerCapacity: "How much room this shop has for the current order size.",
+    proximity: "How close the shop is to the fulfillment ZIP.",
+    shippingCost: "How favorable the mocked shipping estimate looks.",
+    localPickupPreference:
+      "How well this shop matches the pickup preference on the order.",
+    merchantFulfillmentGoal:
+      "How well this shop supports the goal selected for this order.",
+  } satisfies Record<RoutingFactor, string>;
+
+  return merchantExplanations[factor] ?? fallbackNote;
 }
