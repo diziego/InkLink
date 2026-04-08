@@ -199,3 +199,4 @@ Do:
 - keep the MVP believable
 - optimize for founder usability
 - leave the repo in a clean, understandable state
+- leave the repo in a clean, understandable state
