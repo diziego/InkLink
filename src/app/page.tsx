@@ -22,18 +22,24 @@ const providerBenefits = [
   "Build a local fulfillment reputation beyond commodity print-on-demand.",
 ];
 
+const proofPoints = [
+  { label: "Routing", value: "Transparent" },
+  { label: "MVP focus", value: "DTG first" },
+  { label: "Market", value: "Southern California" },
+];
+
 export default function Home() {
   return (
     <main className="min-h-screen bg-zinc-950 text-white">
-      <section className="relative isolate flex min-h-[680px] items-center overflow-hidden px-6 py-8 sm:px-10 lg:px-16">
-        <div className="absolute inset-0 -z-10 bg-[linear-gradient(rgba(9,9,11,0.76),rgba(9,9,11,0.88)),url('/window.svg')] bg-[length:980px_auto] bg-center opacity-90" />
+      <section className="relative isolate flex min-h-[640px] items-center overflow-hidden px-6 py-8 sm:px-10 lg:px-16">
+        <div className="absolute inset-0 -z-10 bg-[linear-gradient(rgba(9,9,11,0.68),rgba(9,9,11,0.92)),url('/window.svg')] bg-[length:1040px_auto] bg-center opacity-90" />
         <div className="absolute inset-0 -z-10 bg-zinc-950/70" />
 
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-16">
           <AppHeader theme="dark" />
 
           <div className="max-w-3xl py-10">
-            <p className="mb-5 text-sm font-medium uppercase tracking-[0.22em] text-zinc-300">
+            <p className="mb-5 inline-flex rounded-md border border-white/15 bg-white/10 px-3 py-2 text-sm font-medium uppercase tracking-[0.2em] text-zinc-200">
               DTG first. Local by default.
             </p>
             <h1 className="text-5xl font-semibold text-white sm:text-6xl">
@@ -57,6 +63,21 @@ export default function Home() {
                 Join as a provider
               </Link>
             </div>
+            <dl className="mt-10 grid max-w-2xl gap-3 sm:grid-cols-3">
+              {proofPoints.map((point) => (
+                <div
+                  key={point.label}
+                  className="rounded-md border border-white/15 bg-white/10 p-4"
+                >
+                  <dt className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-400">
+                    {point.label}
+                  </dt>
+                  <dd className="mt-2 text-base font-semibold text-white">
+                    {point.value}
+                  </dd>
+                </div>
+              ))}
+            </dl>
           </div>
         </div>
       </section>
@@ -66,10 +87,11 @@ export default function Home() {
           <SectionHeading
             eyebrow="How it works"
             title="A clearer path from order intake to local production."
+            level="h2"
           />
           <div className="grid gap-4 md:grid-cols-3">
             {howItWorks.map((step, index) => (
-              <Card key={step} tone="subtle">
+              <Card key={step} tone="subtle" className="shadow-sm">
                 <p className="text-sm font-semibold text-zinc-500">
                   0{index + 1}
                 </p>
@@ -156,7 +178,7 @@ function BenefitPanel({
   cta: string;
 }) {
   return (
-    <Card className="p-7">
+    <Card className="p-7 shadow-sm">
       <p className="text-sm font-medium uppercase tracking-[0.18em] text-zinc-500">
         {eyebrow}
       </p>

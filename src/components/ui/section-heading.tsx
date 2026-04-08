@@ -4,6 +4,7 @@ type SectionHeadingProps = {
   description?: string;
   theme?: "dark" | "light";
   className?: string;
+  level?: "h1" | "h2";
 };
 
 export function SectionHeading({
@@ -12,8 +13,12 @@ export function SectionHeading({
   description,
   theme = "light",
   className = "",
+  level = "h1",
 }: SectionHeadingProps) {
   const isDark = theme === "dark";
+  const HeadingTag = level;
+  const sizeClassName =
+    level === "h1" ? "text-4xl sm:text-5xl" : "text-3xl sm:text-4xl";
 
   return (
     <div className={className}>
@@ -24,13 +29,13 @@ export function SectionHeading({
       >
         {eyebrow}
       </p>
-      <h1
-        className={`mt-4 text-4xl font-semibold sm:text-5xl ${
+      <HeadingTag
+        className={`mt-4 ${sizeClassName} font-semibold ${
           isDark ? "text-white" : "text-zinc-950"
         }`}
       >
         {title}
-      </h1>
+      </HeadingTag>
       {description ? (
         <p
           className={`mt-5 text-lg leading-8 ${

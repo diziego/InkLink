@@ -66,6 +66,11 @@ const factorLabels = {
 } satisfies Record<RoutingFactor, string>;
 
 const factorOrder = Object.keys(factorLabels) as RoutingFactor[];
+const formLabelClassName = "text-sm font-medium text-zinc-700";
+const formInputClassName =
+  "mt-2 h-11 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none transition focus:border-zinc-950 focus:ring-2 focus:ring-zinc-950/10";
+const formReadonlyClassName =
+  "mt-2 h-11 w-full rounded-md border border-zinc-200 bg-zinc-100 px-3 text-sm text-zinc-600";
 
 const demoScenarios = [
   {
@@ -197,7 +202,7 @@ function OrderEntryForm({ values }: { values: OrderFormValues }) {
   return (
     <form
       action="/merchant"
-      className="rounded-md border border-white/15 bg-white p-5 text-zinc-950 shadow-sm"
+      className="rounded-md border border-white/15 bg-white p-6 text-zinc-950 shadow-sm"
     >
       <div className="mb-5">
         <p className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-500">
@@ -213,22 +218,22 @@ function OrderEntryForm({ values }: { values: OrderFormValues }) {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <label className="text-sm font-medium text-zinc-700">
+        <label className={formLabelClassName}>
           Fulfillment ZIP
           <input
             name="fulfillmentZip"
             defaultValue={values.fulfillmentZip}
             inputMode="numeric"
-            className="mt-2 h-11 w-full rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-zinc-950"
+            className={formInputClassName}
           />
         </label>
 
-        <label className="text-sm font-medium text-zinc-700">
+        <label className={formLabelClassName}>
           Fulfillment goal
           <select
             name="fulfillmentGoal"
             defaultValue={values.fulfillmentGoal}
-            className="mt-2 h-11 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-zinc-950"
+            className={formInputClassName}
           >
             {fulfillmentGoalOptions.map((option) => (
               <option key={option.value} value={option.value}>
@@ -238,22 +243,22 @@ function OrderEntryForm({ values }: { values: OrderFormValues }) {
           </select>
         </label>
 
-        <label className="text-sm font-medium text-zinc-700">
+        <label className={formLabelClassName}>
           Print method
           <input
             name="printMethod"
             value="DTG"
             readOnly
-            className="mt-2 h-11 w-full rounded-md border border-zinc-200 bg-zinc-100 px-3 text-sm text-zinc-600"
+            className={formReadonlyClassName}
           />
         </label>
 
-        <label className="text-sm font-medium text-zinc-700">
+        <label className={formLabelClassName}>
           Garment type
           <select
             name="garmentType"
             defaultValue={values.garmentType}
-            className="mt-2 h-11 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-zinc-950"
+            className={formInputClassName}
           >
             {garmentTypeOptions.map((option) => (
               <option key={option.value} value={option.value}>
@@ -263,7 +268,7 @@ function OrderEntryForm({ values }: { values: OrderFormValues }) {
           </select>
         </label>
 
-        <label className="text-sm font-medium text-zinc-700">
+        <label className={formLabelClassName}>
           Quantity
           <input
             name="quantity"
@@ -271,17 +276,17 @@ function OrderEntryForm({ values }: { values: OrderFormValues }) {
             min="1"
             max="500"
             defaultValue={values.quantity}
-            className="mt-2 h-11 w-full rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-zinc-950"
+            className={formInputClassName}
           />
         </label>
 
-        <label className="text-sm font-medium text-zinc-700">
+        <label className={formLabelClassName}>
           Preferred blank brand
           <input
             name="preferredBlankBrand"
             list="blank-brand-options"
             defaultValue={values.preferredBlankBrand}
-            className="mt-2 h-11 w-full rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-zinc-950"
+            className={formInputClassName}
           />
           <datalist id="blank-brand-options">
             {blankBrandOptions.map((brand) => (
@@ -290,13 +295,13 @@ function OrderEntryForm({ values }: { values: OrderFormValues }) {
           </datalist>
         </label>
 
-        <label className="text-sm font-medium text-zinc-700 sm:col-span-2">
+        <label className={`${formLabelClassName} sm:col-span-2`}>
           Preferred blank style
           <input
             name="preferredBlankStyle"
             list="blank-style-options"
             defaultValue={values.preferredBlankStyle}
-            className="mt-2 h-11 w-full rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-zinc-950"
+            className={formInputClassName}
           />
           <datalist id="blank-style-options">
             {blankStyleOptions.map((style) => (
@@ -306,13 +311,13 @@ function OrderEntryForm({ values }: { values: OrderFormValues }) {
         </label>
       </div>
 
-      <label className="mt-5 flex items-start gap-3 text-sm text-zinc-700">
+      <label className="mt-5 flex items-start gap-3 rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-700">
         <input
           type="checkbox"
           name="localPickupPreferred"
           value="true"
           defaultChecked={values.localPickupPreferred}
-          className="mt-1 h-4 w-4"
+          className="mt-1 h-4 w-4 accent-zinc-950"
         />
         <span>Prefer local pickup when a provider supports it</span>
       </label>
@@ -330,15 +335,18 @@ function OrderEntryForm({ values }: { values: OrderFormValues }) {
 function DemoScenarioSwitcher() {
   return (
     <Card className="border-white/15 bg-white/10 text-white">
-      <p className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-400">
-        Demo presets
-      </p>
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-400">
+          Demo presets
+        </p>
+        <p className="text-sm text-zinc-300">Mocked URL scenarios</p>
+      </div>
+      <div className="mt-4 grid gap-2 sm:grid-cols-3">
         {demoScenarios.map((scenario) => (
           <Link
             key={scenario.label}
             href={`/merchant?${new URLSearchParams(scenario.values).toString()}`}
-            className="rounded-md border border-white/15 px-3 py-2 text-sm text-zinc-100 transition hover:border-white/40 hover:bg-white/10"
+            className="rounded-md border border-white/15 bg-zinc-950/40 px-3 py-3 text-sm font-semibold text-zinc-100 transition hover:border-white/40 hover:bg-white/10"
           >
             {scenario.label}
           </Link>
@@ -407,12 +415,16 @@ function RecommendationCard({
   recommendation: ProviderRecommendation;
 }) {
   const notes = recommendation.operationalNotes;
+  const isTopRank = rank === 1;
 
   return (
-    <Card className="border-white/15">
+    <Card className={isTopRank ? "border-emerald-200 shadow-sm" : "border-white/15 shadow-sm"}>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-sm font-semibold text-zinc-500">Rank {rank}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge tone={isTopRank ? "neutral" : "neutral"}>Rank {rank}</Badge>
+            {isTopRank ? <Badge>Best current fit</Badge> : null}
+          </div>
           <h3 className="mt-1 text-2xl font-semibold">
             {recommendation.providerName}
           </h3>
@@ -420,7 +432,7 @@ function RecommendationCard({
             {recommendation.explanation}
           </p>
         </div>
-        <div className="rounded-md bg-zinc-950 px-4 py-3 text-center text-white">
+        <div className="rounded-md bg-zinc-950 px-5 py-4 text-center text-white">
           <p className="text-xs uppercase tracking-[0.16em] text-zinc-400">
             Score
           </p>
@@ -428,7 +440,7 @@ function RecommendationCard({
         </div>
       </div>
 
-      <dl className="mt-5 grid gap-3 border-y border-zinc-200 py-5 sm:grid-cols-5">
+      <dl className="mt-5 grid gap-3 rounded-md border border-zinc-200 bg-zinc-50 p-4 sm:grid-cols-5">
         <FieldMetric label="Turnaround" value={`${notes.estimatedTurnaroundDays} days`} />
         <FieldMetric
           label="Shipping"
@@ -457,7 +469,10 @@ function RecommendationCard({
             const breakdown = recommendation.factorBreakdown[factor];
 
             return (
-              <Card key={factor} tone="subtle" className="p-3">
+              <div
+                key={factor}
+                className="rounded-md border border-zinc-200 bg-zinc-50 p-3"
+              >
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-sm font-semibold">{factorLabels[factor]}</p>
                   <Badge>
@@ -467,7 +482,7 @@ function RecommendationCard({
                 <p className="mt-2 text-sm leading-6 text-zinc-600">
                   {breakdown.note}
                 </p>
-              </Card>
+              </div>
             );
           })}
         </div>

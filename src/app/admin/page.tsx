@@ -21,7 +21,7 @@ const verifiedProviders = mockProviders.filter(
 
 export default function AdminPage() {
   return (
-    <main className="min-h-screen bg-zinc-100 px-6 py-8 text-zinc-950 sm:px-10 lg:px-16">
+    <main className="min-h-screen bg-zinc-50 px-6 py-8 text-zinc-950 sm:px-10 lg:px-16">
       <div className="mx-auto max-w-6xl">
         <AppHeader />
 
@@ -45,13 +45,16 @@ export default function AdminPage() {
         </section>
 
         <section className="pb-16">
-          <div className="mb-6">
-            <p className="text-sm font-medium uppercase tracking-[0.2em] text-zinc-500">
-              Provider review queue
-            </p>
-            <h2 className="mt-2 text-3xl font-semibold">
-              Pending verification
-            </h2>
+          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-sm font-medium uppercase tracking-[0.2em] text-zinc-500">
+                Provider review queue
+              </p>
+              <h2 className="mt-2 text-3xl font-semibold">
+                Pending verification
+              </h2>
+            </div>
+            <Badge>{pendingProviders.length} pending</Badge>
           </div>
           <div className="grid gap-5">
             {pendingProviders.map((provider) => (
@@ -61,13 +64,16 @@ export default function AdminPage() {
         </section>
 
         <section className="pb-16">
-          <div className="mb-6">
-            <p className="text-sm font-medium uppercase tracking-[0.2em] text-zinc-500">
-              Verified routing pool
-            </p>
-            <h2 className="mt-2 text-3xl font-semibold">
-              Providers already eligible for stronger routing scores
-            </h2>
+          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-sm font-medium uppercase tracking-[0.2em] text-zinc-500">
+                Verified routing pool
+              </p>
+              <h2 className="mt-2 text-3xl font-semibold">
+                Providers already eligible for stronger routing scores
+              </h2>
+            </div>
+            <Badge>{verifiedProviders.length} verified</Badge>
           </div>
           <div className="grid gap-5 lg:grid-cols-3">
             {verifiedProviders.map((provider) => (
@@ -91,7 +97,7 @@ function AdminSummary() {
   );
 
   return (
-    <Card className="shadow-sm">
+    <Card className="border-amber-200 shadow-sm">
       <p className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-500">
         Mock marketplace health
       </p>
