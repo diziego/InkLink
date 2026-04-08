@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { AppHeader } from "@/components/app-header";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -20,6 +21,12 @@ import type {
   GarmentType,
   MerchantOrder,
 } from "@/types";
+
+export const metadata: Metadata = {
+  title: "Merchant demo | InkLink",
+  description:
+    "Create a mocked DTG order and view transparent local provider recommendations in InkLink.",
+};
 
 type MerchantPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -312,6 +319,7 @@ function OrderEntryForm({ values }: { values: OrderFormValues }) {
       </div>
 
       <label className="mt-5 flex items-start gap-3 rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-700">
+        <input type="hidden" name="localPickupPreferred" value="false" />
         <input
           type="checkbox"
           name="localPickupPreferred"
@@ -507,10 +515,10 @@ function getOrderFormValues(
       defaultOrder.fulfillmentGoal,
     ),
     localPickupPreferred:
-      getStringParam(
+      getBooleanParam(
         searchParams.localPickupPreferred,
-        defaultOrder.localPickupPreferred ? "true" : "false",
-      ) === "true",
+        defaultOrder.localPickupPreferred,
+      ),
     garmentType: getGarmentTypeParam(
       searchParams.garmentType,
       defaultItem.garmentType,
@@ -600,4 +608,23 @@ function getQuantityParam(
   }
 
   return Math.max(1, Math.min(parsedQuantity, 500));
+}
+
+function getBooleanParam(
+  value: string | string[] | undefined,
+  fallback: boolean,
+) {
+  if (Array.isArray(value)) {
+    return value.includes("true");
+  }
+
+  if (value === "true") {
+    return true;
+  }
+
+  if (value === "false") {
+    return false;
+  }
+
+  return fallback;
 }

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { AppHeader } from "@/components/app-header";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -11,6 +12,12 @@ import {
 } from "@/lib/mock-data";
 import { formatValue } from "@/lib/format";
 import type { ProviderProfile } from "@/types";
+
+export const metadata: Metadata = {
+  title: "Admin demo | InkLink",
+  description:
+    "Review mocked provider verification, tier, quality, and capacity signals for InkLink.",
+};
 
 const pendingProviders = mockProviders.filter(
   (provider) => provider.verificationStatus === "pending",

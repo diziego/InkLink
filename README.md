@@ -162,6 +162,27 @@ npm run build
 
 Note: the app currently uses `next/font/google` for Geist. A production build may need network access to fetch font assets if they are not already cached.
 
+## Deployment
+
+The current mocked MVP is ready to deploy as a standard Next.js app on Vercel.
+
+Recommended Vercel settings:
+
+- Framework preset: Next.js
+- Install command: `npm install`
+- Build command: `npm run build`
+- Output directory: leave as the Next.js default
+- Environment variables: none required for the current mocked demo
+
+Suggested demo routes:
+
+- `/` for the product overview
+- `/merchant` for the mocked order and recommendation flow
+- `/provider` for the mocked provider profile
+- `/admin` for the mocked provider review queue
+
+Deployment note: this version is intentionally frontend-only and uses static mock data. Do not present it as a live fulfillment marketplace, live provider network, or production order system until Supabase, auth, persistence, and real integrations are added.
+
 ## Portfolio Case Study
 
 ### Why InkLink Exists
@@ -209,4 +230,3 @@ That makes the demo feel less like a generic storefront and more like a marketpl
 - Phase 4: Real inventory/blank supplier data model.
 - Phase 5: Shipping, distance, and local courier integrations.
 - Phase 6: Shopify import and multi-item/split routing workflows.
-

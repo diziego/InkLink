@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { AppHeader } from "@/components/app-header";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -12,6 +13,12 @@ import {
   mockProviders,
 } from "@/lib/mock-data";
 import { formatValue } from "@/lib/format";
+
+export const metadata: Metadata = {
+  title: "Provider demo | InkLink",
+  description:
+    "Review a mocked provider onboarding profile with routing-relevant capability, capacity, and verification signals.",
+};
 
 const featuredProvider = mockProviders[0];
 const featuredCapability = mockProviderCapabilities.find(
