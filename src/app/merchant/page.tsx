@@ -3,7 +3,6 @@ import type { Metadata } from "next";
 import { AppHeader } from "@/components/app-header";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { FieldMetric } from "@/components/ui/field-metric";
 import { MockNotice } from "@/components/ui/mock-notice";
 import { SectionHeading } from "@/components/ui/section-heading";
 import {
@@ -59,17 +58,17 @@ const garmentTypeOptions = [
 ] satisfies { value: GarmentType; label: string }[];
 
 const factorLabels = {
-  printMethodCompatibility: "Print match",
-  garmentCompatibility: "Garment fit",
+  printMethodCompatibility: "Print fit",
+  garmentCompatibility: "Product fit",
   blankAvailability: "Blank fit",
-  providerVerificationTier: "Shop readiness",
+  providerVerificationTier: "Shop trust",
   providerQuality: "Quality",
-  turnaroundSla: "Turnaround",
+  turnaroundSla: "Speed",
   providerCapacity: "Capacity",
-  proximity: "Location fit",
-  shippingCost: "Shipping cost",
-  localPickupPreference: "Pickup option",
-  merchantFulfillmentGoal: "Order priority",
+  proximity: "Distance",
+  shippingCost: "Shipping",
+  localPickupPreference: "Pickup",
+  merchantFulfillmentGoal: "Priority",
 } satisfies Record<RoutingFactor, string>;
 
 const factorOrder = Object.keys(factorLabels) as RoutingFactor[];
@@ -426,6 +425,13 @@ function RecommendationCard({
   const notes = recommendation.operationalNotes;
   const isTopRank = rank === 1;
   const merchantScore = formatScoreOutOfTen(recommendation.totalScore);
+  const strongestFactors = factorOrder
+    .map((factor) => ({
+      factor,
+      ...recommendation.factorBreakdown[factor],
+    }))
+    .sort((first, second) => second.weightedScore - first.weightedScore)
+    .slice(0, 3);
 
   return (
     <Card className={isTopRank ? "border-emerald-200 shadow-sm" : "border-white/15 shadow-sm"}>
@@ -438,7 +444,7 @@ function RecommendationCard({
           <h3 className="mt-1 text-2xl font-semibold">
             {recommendation.providerName}
           </h3>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-zinc-700">
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-700">
             {recommendation.explanation}
           </p>
         </div>
@@ -451,54 +457,104 @@ function RecommendationCard({
         </div>
       </div>
 
-      <dl className="mt-5 grid gap-3 rounded-md border border-zinc-200 bg-zinc-50 p-4 sm:grid-cols-5">
-        <FieldMetric label="Turnaround" value={`${notes.estimatedTurnaroundDays} days`} />
-        <FieldMetric
+      <div className="mt-5 flex flex-wrap gap-2">
+        <CompactNote label="Turnaround" value={`${notes.estimatedTurnaroundDays} days`} />
+        <CompactNote
           label="Shipping"
           value={`$${notes.estimatedShippingCostUsd.toFixed(2)}`}
         />
-        <FieldMetric
+        <CompactNote
           label="Distance"
           value={`${notes.estimatedDistanceMiles} mi`}
         />
-        <FieldMetric
+        <CompactNote
           label="Capacity"
           value={`${notes.availableCapacityUnits}/${notes.requestedUnits} units`}
         />
-        <FieldMetric
+        <CompactNote
           label="Pickup"
           value={notes.localPickupSupported ? "Supported" : "Not supported"}
         />
-      </dl>
+      </div>
 
       <div className="mt-5">
         <h4 className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-500">
-          Factor breakdown
+          Why this ranked high
         </h4>
-        <div className="mt-3 grid gap-3 md:grid-cols-2">
-          {factorOrder.map((factor) => {
-            const breakdown = recommendation.factorBreakdown[factor];
-
-            return (
-              <div
-                key={factor}
-                className="rounded-md border border-zinc-200 bg-zinc-50 p-3"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-semibold">{factorLabels[factor]}</p>
-                  <Badge>
-                    {formatScoreOutOfTen(breakdown.score)}/10
-                  </Badge>
+        <div className="mt-3 grid gap-3 md:grid-cols-3">
+          {strongestFactors.map((factor) => (
+            <div
+              key={factor.factor}
+              className="rounded-md border border-zinc-200 bg-zinc-50 p-4"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold">
+                    {factorLabels[factor.factor]}
+                  </p>
+                  <p className="mt-1 text-sm leading-6 text-zinc-600">
+                    {getMerchantFactorExplanation(factor.factor, factor.note)}
+                  </p>
                 </div>
-                <p className="mt-2 text-sm leading-6 text-zinc-600">
-                  {getMerchantFactorExplanation(factor, breakdown.note)}
-                </p>
+                <MiniScore value={formatScoreOutOfTen(factor.score)} />
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       </div>
+
+      <details className="mt-4 rounded-md border border-zinc-200 bg-zinc-50">
+        <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-zinc-700 marker:hidden">
+          See full breakdown
+        </summary>
+        <div className="border-t border-zinc-200 px-4 py-4">
+          <div className="grid gap-3 md:grid-cols-2">
+            {factorOrder.map((factor) => {
+              const breakdown = recommendation.factorBreakdown[factor];
+
+              return (
+                <div
+                  key={factor}
+                  className="rounded-md border border-zinc-200 bg-white p-3"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-semibold">
+                      {factorLabels[factor]}
+                    </p>
+                    <MiniScore value={formatScoreOutOfTen(breakdown.score)} />
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-zinc-600">
+                    {getMerchantFactorExplanation(factor, breakdown.note)}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </details>
     </Card>
+  );
+}
+
+function CompactNote({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+        {label}
+      </p>
+      <p className="mt-1 text-sm font-semibold text-zinc-950">{value}</p>
+    </div>
+  );
+}
+
+function MiniScore({ value }: { value: number }) {
+  return (
+    <div className="min-w-[52px] rounded-md bg-zinc-950 px-3 py-2 text-center text-white">
+      <p className="text-xl font-semibold">{value}</p>
+      <p className="text-[11px] uppercase tracking-[0.14em] text-zinc-400">
+        /10
+      </p>
+    </div>
   );
 }
 
