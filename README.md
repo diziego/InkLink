@@ -1,36 +1,212 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# InkLink
 
-## Getting Started
+InkLink is a local-first print fulfillment marketplace concept for small brands, creators, and vetted print providers.
 
-First, run the development server:
+The MVP focuses on DTG orders first, with a transparent provider recommendation engine that can later expand to DTF, screen print, embroidery, heat transfer, local courier delivery, Shopify import, and split routing.
+
+## Problem
+
+Small brands often outgrow generic print-on-demand tools before they are ready to manage a full vendor network. Local print providers may offer better quality, faster pickup, premium blank options, and stronger community fit, but they are hard to compare consistently.
+
+The usual tradeoff is messy:
+
+- Merchants have limited visibility into quality, turnaround, blank availability, and capacity.
+- Providers get requests that may not fit their equipment, SLA, or current workload.
+- Admin or marketplace operators need a clear way to verify providers before routing real orders.
+
+## Solution
+
+InkLink models a focused marketplace flow:
+
+- Merchants create a DTG-first order using simple fulfillment preferences.
+- Providers expose capabilities, capacity, supported garments, local pickup, verification status, and tier.
+- Admins review provider readiness before providers become stronger routing candidates.
+- A deterministic routing engine ranks providers using transparent factor scores instead of a black-box recommendation.
+
+The current app is a mocked MVP demo. It is designed to show the product workflow, data model direction, and routing logic before backend wiring.
+
+## Target Users
+
+- Small apparel brands testing local fulfillment.
+- Creators selling limited merch drops.
+- Premium blank-friendly merchants who care about quality and sourcing.
+- Local DTG providers looking for better-fit order demand.
+- Marketplace operators/admins reviewing provider quality and readiness.
+
+## Current MVP Features
+
+- Branded landing page for the InkLink concept.
+- Merchant order demo at `/merchant` with editable mocked inputs:
+  - fulfillment ZIP
+  - fulfillment goal
+  - local pickup preference
+  - garment type
+  - quantity
+  - preferred blank brand and style
+  - DTG default print method
+- Demo scenario presets for common mocked order cases.
+- Ranked provider recommendations with:
+  - provider name
+  - total score
+  - factor breakdown
+  - explanation
+  - estimated turnaround
+  - mocked shipping cost
+  - mocked distance
+  - capacity notes
+  - local pickup support
+- Provider profile/onboarding demo at `/provider`.
+- Admin provider verification/review demo at `/admin`.
+- Shared UI components for headers, cards, badges, section headings, stat cards, notices, and metrics.
+- Strongly typed mock marketplace data for merchants, providers, capabilities, inventory, orders, and quality metrics.
+
+## Routing Engine
+
+The routing engine lives in `src/lib/routing` and is intentionally isolated from UI code.
+
+It ranks providers deterministically using editable weights from `src/lib/routing/weights.ts`. Each recommendation returns a total score, factor breakdown, explanation, and operational notes.
+
+Current scoring factors:
+
+- print method compatibility
+- garment compatibility
+- blank availability
+- provider verification or tier
+- provider quality score
+- turnaround SLA
+- provider capacity
+- proximity to fulfillment ZIP
+- mocked shipping cost
+- local pickup preference
+- merchant fulfillment goal
+
+The goal is transparency: a merchant or marketplace operator can see why a provider ranked highly and which factors helped or hurt the score.
+
+## Mocked Vs Real Status
+
+Mocked today:
+
+- Merchant orders and profile data
+- Provider profiles and capabilities
+- Provider verification status and tier
+- Blank inventory and availability
+- Quality metrics
+- Distance/proximity estimates
+- Shipping cost estimates
+- Capacity fit calculations
+- Admin review actions
+- Auth/session behavior
+
+Ready for future integration:
+
+- Typed marketplace models in `src/types`
+- Mock seed datasets in `src/lib/mock-data`
+- Routing engine API in `src/lib/routing`
+- Merchant recommendation screen wired to the routing engine
+- Provider/admin screens that display routing-relevant provider signals
+
+Not implemented yet:
+
+- Supabase auth
+- Supabase database schema
+- Persistent order creation
+- Provider profile editing
+- Admin verification mutations
+- Real shipping, geocoding, blank supplier, payout, or Shopify integrations
+
+## Tech Stack
+
+- Next.js App Router
+- TypeScript
+- React
+- Tailwind CSS
+- ESLint
+
+Planned stack additions:
+
+- Supabase for auth, Postgres, and storage
+- Zod for server-side form validation
+- shadcn/ui only where it clearly reduces UI repetition
+
+## Local Setup
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open the app:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```text
+http://localhost:3000
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Run lint:
 
-## Learn More
+```bash
+npm run lint
+```
 
-To learn more about Next.js, take a look at the following resources:
+Run a production build:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm run build
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Note: the app currently uses `next/font/google` for Geist. A production build may need network access to fetch font assets if they are not already cached.
 
-## Deploy on Vercel
+## Portfolio Case Study
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Why InkLink Exists
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+InkLink explores a gap between commodity print-on-demand tools and manually managed local print relationships. Small brands often want better quality, premium blanks, and local fulfillment options, but comparing providers is time-consuming and opaque.
+
+The product concept is a local-first marketplace where routing decisions are visible and operationally grounded.
+
+### What Makes It Different
+
+Generic POD tools usually optimize for simple upload-to-ship workflows. InkLink is framed around local provider fit:
+
+- Can this provider print the requested method and garment?
+- Do they have compatible blanks available?
+- Are they verified?
+- What is their quality score?
+- Do they have capacity?
+- Are they close to the fulfillment ZIP?
+- Do they support pickup?
+- Does the recommendation match the merchant's fulfillment goal?
+
+That makes the demo feel less like a generic storefront and more like a marketplace operations product.
+
+### Strongest Technical Parts
+
+- Isolated deterministic routing engine with editable scoring weights.
+- Typed mock marketplace model that anticipates future Supabase tables without over-modeling the MVP.
+- Recommendation output that includes both machine-readable factor scores and human-readable explanations.
+- Clear separation between UI routes, mock data, routing logic, and shared presentation components.
+
+### What Would Be Built Next
+
+1. Add Supabase auth and role-aware profiles for merchants, providers, and admins.
+2. Add a Postgres schema for profiles, provider capabilities, inventory, orders, and quality metrics.
+3. Persist merchant order creation and provider recommendation snapshots.
+4. Convert provider/admin demo screens into real server-validated forms and actions.
+5. Replace mocked distance, shipping, inventory, and capacity estimates with real integrations incrementally.
+6. Add Shopify import only after the core order and routing loop is stable.
+
+## Roadmap
+
+- Phase 1: Supabase auth and profile creation.
+- Phase 2: Provider onboarding persistence and admin verification actions.
+- Phase 3: Merchant order persistence and saved recommendation snapshots.
+- Phase 4: Real inventory/blank supplier data model.
+- Phase 5: Shipping, distance, and local courier integrations.
+- Phase 6: Shopify import and multi-item/split routing workflows.
+
