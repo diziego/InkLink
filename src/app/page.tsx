@@ -1,65 +1,202 @@
-import Image from "next/image";
+import Link from "next/link";
+import { BRAND } from "@/config/brand";
+
+const howItWorks = [
+  "Merchants submit print-ready DTG orders with blank preferences and fulfillment goals.",
+  "InkLink compares vetted local providers using transparent marketplace criteria.",
+  "The best-fit provider handles production while the order stays easy to track.",
+];
+
+const merchantBenefits = [
+  "Route orders to providers near your customers.",
+  "Support premium blanks without burying the sourcing details.",
+  "Compare quality, turnaround, capacity, and local pickup signals.",
+];
+
+const providerBenefits = [
+  "Receive work that fits your print methods and shop capacity.",
+  "Show merchants where your quality, speed, and specialties stand out.",
+  "Build a local fulfillment reputation beyond commodity print-on-demand.",
+];
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <main className="min-h-screen bg-zinc-950 text-white">
+      <section className="relative isolate flex min-h-[680px] items-center overflow-hidden px-6 py-8 sm:px-10 lg:px-16">
+        <div className="absolute inset-0 -z-10 bg-[linear-gradient(rgba(9,9,11,0.76),rgba(9,9,11,0.88)),url('/window.svg')] bg-[length:980px_auto] bg-center opacity-90" />
+        <div className="absolute inset-0 -z-10 bg-zinc-950/70" />
+
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-16">
+          <header className="flex items-center justify-between">
+            <Link href="/" className="text-lg font-semibold">
+              {BRAND.logoText}
+            </Link>
+            <nav
+              aria-label="Primary navigation"
+              className="hidden items-center gap-6 text-sm text-zinc-300 sm:flex"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+              <Link href="/merchant" className="transition hover:text-white">
+                Merchants
+              </Link>
+              <Link href="/provider" className="transition hover:text-white">
+                Providers
+              </Link>
+              <Link href="/admin" className="transition hover:text-white">
+                Admin
+              </Link>
+            </nav>
+          </header>
+
+          <div className="max-w-3xl py-10">
+            <p className="mb-5 text-sm font-medium uppercase tracking-[0.22em] text-zinc-300">
+              DTG first. Local by default.
+            </p>
+            <h1 className="text-5xl font-semibold text-white sm:text-6xl">
+              {BRAND.tagline}
+            </h1>
+            <p className="mt-6 max-w-2xl text-lg leading-8 text-zinc-200">
+              {BRAND.description} Built for premium blank-friendly workflows,
+              local routing, and transparent provider scoring.
+            </p>
+            <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+              <Link
+                href="/merchant"
+                className="inline-flex h-12 items-center justify-center rounded-md bg-white px-5 text-sm font-semibold text-zinc-950 transition hover:bg-zinc-200"
+              >
+                Start as a merchant
+              </Link>
+              <Link
+                href="/provider"
+                className="inline-flex h-12 items-center justify-center rounded-md border border-white/30 px-5 text-sm font-semibold text-white transition hover:border-white hover:bg-white/10"
+              >
+                Join as a provider
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-white px-6 py-20 text-zinc-950 sm:px-10 lg:px-16">
+        <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-[0.85fr_1.15fr]">
+          <div>
+            <p className="text-sm font-medium uppercase tracking-[0.18em] text-zinc-500">
+              How it works
+            </p>
+            <h2 className="mt-3 text-3xl font-semibold">
+              A clearer path from order intake to local production.
+            </h2>
+          </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            {howItWorks.map((step, index) => (
+              <article
+                key={step}
+                className="rounded-md border border-zinc-200 bg-zinc-50 p-5"
+              >
+                <p className="text-sm font-semibold text-zinc-500">
+                  0{index + 1}
+                </p>
+                <p className="mt-4 text-base leading-7 text-zinc-700">{step}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-zinc-100 px-6 py-20 text-zinc-950 sm:px-10 lg:px-16">
+        <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-2">
+          <BenefitPanel
+            eyebrow="For merchants"
+            title="Fulfillment decisions with the scoring out in the open."
+            benefits={merchantBenefits}
+            href="/merchant"
+            cta="Open merchant workspace"
+          />
+          <BenefitPanel
+            eyebrow="For providers"
+            title="Local demand that fits your equipment and standards."
+            benefits={providerBenefits}
+            href="/provider"
+            cta="Open provider workspace"
+          />
+        </div>
+      </section>
+
+      <section className="bg-white px-6 py-20 text-zinc-950 sm:px-10 lg:px-16">
+        <div className="mx-auto max-w-6xl rounded-md border border-zinc-200 bg-zinc-950 p-8 text-white sm:p-10">
+          <p className="text-sm font-medium uppercase tracking-[0.18em] text-zinc-400">
+            Local-first positioning
           </p>
+          <div className="mt-4 grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
+            <h2 className="text-3xl font-semibold">
+              Premium blanks, vetted print partners, and fulfillment choices
+              that favor nearby production when it makes sense.
+            </h2>
+            <p className="text-base leading-7 text-zinc-300">
+              InkLink starts with DTG and leaves room for DTF, screen print,
+              embroidery, heat transfer, local courier options, and split
+              routing later. The MVP stays focused on a credible marketplace
+              loop first.
+            </p>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </section>
+
+      <footer className="border-t border-zinc-800 bg-zinc-950 px-6 py-8 text-sm text-zinc-400 sm:px-10 lg:px-16">
+        <div className="mx-auto flex max-w-6xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <p>
+            <span className="font-semibold text-white">{BRAND.logoText}</span>{" "}
+            {BRAND.footerCopy}
+          </p>
+          <div className="flex gap-5">
+            <Link href="/merchant" className="transition hover:text-white">
+              Merchant
+            </Link>
+            <Link href="/provider" className="transition hover:text-white">
+              Provider
+            </Link>
+            <Link href="/admin" className="transition hover:text-white">
+              Admin
+            </Link>
+          </div>
         </div>
-      </main>
-    </div>
+      </footer>
+    </main>
+  );
+}
+
+function BenefitPanel({
+  eyebrow,
+  title,
+  benefits,
+  href,
+  cta,
+}: {
+  eyebrow: string;
+  title: string;
+  benefits: string[];
+  href: string;
+  cta: string;
+}) {
+  return (
+    <article className="rounded-md border border-zinc-200 bg-white p-7">
+      <p className="text-sm font-medium uppercase tracking-[0.18em] text-zinc-500">
+        {eyebrow}
+      </p>
+      <h2 className="mt-3 text-2xl font-semibold">{title}</h2>
+      <ul className="mt-6 space-y-3 text-base leading-7 text-zinc-700">
+        {benefits.map((benefit) => (
+          <li key={benefit} className="flex gap-3">
+            <span className="mt-3 h-1.5 w-1.5 shrink-0 rounded-sm bg-zinc-950" />
+            <span>{benefit}</span>
+          </li>
+        ))}
+      </ul>
+      <Link
+        href={href}
+        className="mt-7 inline-flex h-11 items-center justify-center rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white transition hover:bg-zinc-800"
+      >
+        {cta}
+      </Link>
+    </article>
   );
 }
