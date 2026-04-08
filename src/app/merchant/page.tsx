@@ -507,24 +507,30 @@ function RecommendationCard({
         <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-zinc-700 marker:hidden">
           See full breakdown
         </summary>
-        <div className="border-t border-zinc-200 px-4 py-4">
-          <div className="grid gap-3 md:grid-cols-2">
+        <div className="border-t border-zinc-200/80 px-3 py-3">
+          <div className="grid gap-2 md:grid-cols-2">
             {factorOrder.map((factor) => {
               const breakdown = recommendation.factorBreakdown[factor];
 
               return (
                 <div
                   key={factor}
-                  className="rounded-md border border-zinc-200 bg-white p-3"
+                  className="rounded-md border border-zinc-200/80 bg-white px-3 py-2.5"
                 >
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-start justify-between gap-3">
                     <p className="text-sm font-semibold">
                       {factorLabels[factor]}
                     </p>
-                    <MiniScore value={formatScoreOutOfTen(breakdown.score)} />
+                    <MiniScore
+                      value={formatScoreOutOfTen(breakdown.score)}
+                      compact
+                    />
                   </div>
-                  <p className="mt-2 text-sm leading-6 text-zinc-600">
-                    {getMerchantFactorExplanation(factor, breakdown.note)}
+                  <p className="mt-1 text-xs leading-5 text-zinc-600">
+                    {getCompactMerchantFactorExplanation(
+                      factor,
+                      getMerchantFactorExplanation(factor, breakdown.note),
+                    )}
                   </p>
                 </div>
               );
@@ -547,11 +553,27 @@ function CompactNote({ label, value }: { label: string; value: string }) {
   );
 }
 
-function MiniScore({ value }: { value: number }) {
+function MiniScore({
+  value,
+  compact = false,
+}: {
+  value: number;
+  compact?: boolean;
+}) {
   return (
-    <div className="min-w-[52px] rounded-md bg-zinc-950 px-3 py-2 text-center text-white">
-      <p className="text-xl font-semibold">{value}</p>
-      <p className="text-[11px] uppercase tracking-[0.14em] text-zinc-400">
+    <div
+      className={`rounded-md bg-zinc-950 text-center text-white ${
+        compact ? "min-w-[42px] px-2 py-1.5" : "min-w-[52px] px-3 py-2"
+      }`}
+    >
+      <p className={compact ? "text-lg font-semibold" : "text-xl font-semibold"}>
+        {value}
+      </p>
+      <p
+        className={`uppercase tracking-[0.14em] text-zinc-400 ${
+          compact ? "text-[10px]" : "text-[11px]"
+        }`}
+      >
         /10
       </p>
     </div>
@@ -720,4 +742,25 @@ function getMerchantFactorExplanation(
   } satisfies Record<RoutingFactor, string>;
 
   return merchantExplanations[factor] ?? fallbackNote;
+}
+
+function getCompactMerchantFactorExplanation(
+  factor: RoutingFactor,
+  fallbackNote: string,
+) {
+  const compactExplanations = {
+    printMethodCompatibility: "Fit for the print method.",
+    garmentCompatibility: "Fit for the product type.",
+    blankAvailability: "Likelihood of sourcing the blank well.",
+    providerVerificationTier: "Marketplace trust and review readiness.",
+    providerQuality: "Quality and reliability signal.",
+    turnaroundSla: "Expected speed for standard production.",
+    providerCapacity: "Room for the current order size.",
+    proximity: "How near the shop is to fulfillment.",
+    shippingCost: "Mocked shipping favorability.",
+    localPickupPreference: "Match for the pickup preference.",
+    merchantFulfillmentGoal: "Support for the selected order goal.",
+  } satisfies Record<RoutingFactor, string>;
+
+  return compactExplanations[factor] ?? fallbackNote;
 }
