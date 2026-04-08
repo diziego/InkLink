@@ -1,0 +1,102 @@
+import type { MerchantOrder } from "@/types";
+
+// Mock MVP order data only. These records are intended as routing-engine inputs.
+export const mockMerchantOrders = [
+  {
+    id: "order-coastline-spring-drop",
+    merchantId: "merchant-coastline-goods",
+    status: "ready_for_routing",
+    fulfillmentZip: "90401",
+    fulfillmentGoal: "local_first",
+    localPickupPreferred: true,
+    neededByDate: "2026-04-18",
+    items: [
+      {
+        id: "order-item-coastline-laa-tee",
+        printMethod: "dtg",
+        garmentType: "t_shirt",
+        quantity: 72,
+        preferredBlankBrand: "Los Angeles Apparel",
+        preferredBlankStyle: "1801GD Garment Dye Tee",
+        sizes: {
+          S: 12,
+          M: 24,
+          L: 24,
+          XL: 12,
+        },
+        color: "black",
+      },
+    ],
+    notes: "Local pickup preferred for a weekend market restock.",
+    createdAt: "2026-04-03T18:45:00.000Z",
+  },
+  {
+    id: "order-canyon-premium-tote-tee",
+    merchantId: "merchant-canyon-club",
+    status: "ready_for_routing",
+    fulfillmentZip: "91103",
+    fulfillmentGoal: "premium_blank",
+    localPickupPreferred: false,
+    neededByDate: "2026-04-22",
+    items: [
+      {
+        id: "order-item-canyon-trash-tee",
+        printMethod: "dtg",
+        garmentType: "t_shirt",
+        quantity: 48,
+        preferredBlankBrand: "Everybody.World",
+        preferredBlankStyle: "Trash Tee",
+        sizes: {
+          S: 8,
+          M: 16,
+          L: 16,
+          XL: 8,
+        },
+        color: "natural",
+      },
+      {
+        id: "order-item-canyon-organic-tote",
+        printMethod: "dtg",
+        garmentType: "tote",
+        quantity: 80,
+        preferredBlankBrand: "econscious",
+        preferredBlankStyle: "Organic Cotton Tote",
+        sizes: {
+          M: 80,
+        },
+        color: "natural",
+      },
+    ],
+    notes: "Premium blank preference matters more than lowest cost.",
+    createdAt: "2026-04-04T20:30:00.000Z",
+  },
+  {
+    id: "order-coastline-hoodie-test",
+    merchantId: "merchant-coastline-goods",
+    status: "draft",
+    fulfillmentZip: "90802",
+    fulfillmentGoal: "fastest_turnaround",
+    localPickupPreferred: false,
+    neededByDate: "2026-04-15",
+    items: [
+      {
+        id: "order-item-coastline-heavy-hoodie",
+        printMethod: "dtg",
+        garmentType: "hoodie",
+        quantity: 36,
+        preferredBlankBrand: "Independent Trading Co.",
+        preferredBlankStyle: "IND4000 Heavyweight Hoodie",
+        sizes: {
+          S: 4,
+          M: 10,
+          L: 12,
+          XL: 8,
+          "2XL": 2,
+        },
+        color: "charcoal",
+      },
+    ],
+    notes: "Draft sample run for a colder-weather capsule.",
+    createdAt: "2026-04-05T16:15:00.000Z",
+  },
+] satisfies MerchantOrder[];

@@ -1,0 +1,55 @@
+import type { ProviderQualityMetrics } from "@/types";
+
+// Mock MVP quality metrics only. Scores are static and transparent seed values.
+export const mockProviderQualityMetrics = [
+  {
+    providerId: "provider-echo-park-print-works",
+    qualityScore: 94,
+    reliabilityScore: 91,
+    reprintRate: 0.018,
+    onTimeDeliveryRate: 0.96,
+    averageRating: 4.8,
+    completedOrders: 186,
+    lastReviewedAt: "2026-03-29T18:30:00.000Z",
+  },
+  {
+    providerId: "provider-harbor-stitch-print",
+    qualityScore: 89,
+    reliabilityScore: 88,
+    reprintRate: 0.026,
+    onTimeDeliveryRate: 0.93,
+    averageRating: 4.6,
+    completedOrders: 143,
+    lastReviewedAt: "2026-03-27T17:10:00.000Z",
+  },
+  {
+    providerId: "provider-civic-center-ink",
+    qualityScore: 87,
+    reliabilityScore: 92,
+    reprintRate: 0.022,
+    onTimeDeliveryRate: 0.97,
+    averageRating: 4.7,
+    completedOrders: 118,
+    lastReviewedAt: "2026-03-30T21:45:00.000Z",
+  },
+  {
+    providerId: "provider-barrio-logan-press",
+    qualityScore: 81,
+    reliabilityScore: 78,
+    reprintRate: 0.041,
+    onTimeDeliveryRate: 0.88,
+    averageRating: 4.3,
+    completedOrders: 38,
+    lastReviewedAt: "2026-03-24T19:05:00.000Z",
+  },
+  {
+    providerId: "provider-inland-blank-lab",
+    qualityScore: 84,
+    reliabilityScore: 85,
+    reprintRate: 0.034,
+    onTimeDeliveryRate: 0.9,
+    averageRating: 4.4,
+    completedOrders: 62,
+    lastReviewedAt: "2026-03-26T20:20:00.000Z",
+  },
+] satisfies ProviderQualityMetrics[];
