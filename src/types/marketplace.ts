@@ -79,6 +79,7 @@ export type ProviderProfile = {
   businessType: string;
   yearsInOperation: number;
   supplierAccountReadiness: string[];
+  preferredBlankDistributors: string[];
   blankSourcingNotes: string;
   fulfillmentCutoffTime: string;
   reorderLeadTimeDays: number;

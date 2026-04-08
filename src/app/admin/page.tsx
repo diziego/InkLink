@@ -41,9 +41,9 @@ export default function AdminPage() {
             />
             <div className="mt-8">
               <MockNotice>
-              Mocked MVP flow: review actions are display-only. No provider
-              status, tier, or capacity changes are saved until Supabase and
-              admin actions are added.
+                Mocked MVP flow: review actions are display-only. No provider
+                status, tier, or capacity changes are saved until Supabase and
+                admin actions are added.
               </MockNotice>
             </div>
           </div>
@@ -199,6 +199,14 @@ function ProviderReviewCard({ provider }: { provider: ProviderProfile }) {
                   <Badge key={account}>{account}</Badge>
                 ))}
               </div>
+              <p className="mt-4 text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">
+                Preferred blank distributors
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {provider.preferredBlankDistributors.map((distributor) => (
+                  <Badge key={distributor}>{distributor}</Badge>
+                ))}
+              </div>
               <p className="mt-3 text-sm leading-6 text-zinc-700">
                 {provider.blankSourcingNotes}
               </p>
@@ -221,6 +229,17 @@ function ProviderReviewCard({ provider }: { provider: ProviderProfile }) {
               value={`${Math.round((metrics?.onTimeDeliveryRate ?? 0) * 100)}%`}
             />
           </dl>
+          <div className="mt-4 rounded-md border border-zinc-200 bg-white p-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">
+              Ops review focus
+            </p>
+            <p className="mt-2 text-sm leading-6 text-zinc-700">
+              Admin review later should verify resale paperwork, tax identity,
+              distributor access, sourcing reliability, cutoff times, and
+              reorder lead times before moving a provider into the stronger
+              routing pool.
+            </p>
+          </div>
         </div>
       </div>
     </Card>

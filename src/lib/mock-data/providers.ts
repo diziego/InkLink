@@ -25,6 +25,11 @@ export const mockProviders = [
       "alphabroder",
       "Los Angeles Apparel wholesale",
     ],
+    preferredBlankDistributors: [
+      "Los Angeles Apparel wholesale",
+      "AS Colour",
+      "S&S Activewear",
+    ],
     blankSourcingNotes:
       "Keeps core Los Angeles Apparel and AS Colour styles on hand and can source specialty colors with notice.",
     fulfillmentCutoffTime: "2:00 PM PT",
@@ -56,6 +61,11 @@ export const mockProviders = [
     businessType: "Corporation",
     yearsInOperation: 9,
     supplierAccountReadiness: ["S&S Activewear", "SanMar", "Bella+Canvas"],
+    preferredBlankDistributors: [
+      "S&S Activewear",
+      "SanMar",
+      "Bella+Canvas",
+    ],
     blankSourcingNotes:
       "Strong fleece and core tee sourcing through national distributors with same-week replenishment.",
     fulfillmentCutoffTime: "1:00 PM PT",
@@ -87,6 +97,11 @@ export const mockProviders = [
     businessType: "LLC",
     yearsInOperation: 4,
     supplierAccountReadiness: ["Everybody.World", "econscious", "S&S Activewear"],
+    preferredBlankDistributors: [
+      "Everybody.World",
+      "econscious",
+      "S&S Activewear",
+    ],
     blankSourcingNotes:
       "Leans on premium blanks for rush retail-ready jobs and keeps tote inventory deeper than fleece inventory.",
     fulfillmentCutoffTime: "12:00 PM PT",
@@ -118,6 +133,10 @@ export const mockProviders = [
     businessType: "Cooperative",
     yearsInOperation: 3,
     supplierAccountReadiness: ["S&S Activewear pending", "Local blank brokers"],
+    preferredBlankDistributors: [
+      "Local blank brokers",
+      "S&S Activewear pending",
+    ],
     blankSourcingNotes:
       "Can source budget-friendly blanks quickly but is still building premium wholesale depth.",
     fulfillmentCutoffTime: "11:00 AM PT",
@@ -152,6 +171,11 @@ export const mockProviders = [
       "S&S Activewear",
       "alphabroder",
       "Independent Trading Co.",
+    ],
+    preferredBlankDistributors: [
+      "Independent Trading Co.",
+      "alphabroder",
+      "S&S Activewear",
     ],
     blankSourcingNotes:
       "Best set up for replenishment orders and bulk blank sourcing across tees, long sleeves, and fleece.",

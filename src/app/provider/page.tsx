@@ -52,9 +52,9 @@ export default function ProviderPage() {
             />
             <div className="mt-8">
               <MockNotice>
-              Mocked MVP flow: no provider profile is saved yet. Supabase auth,
-              profile editing, document upload, and admin submission will be
-              wired later.
+                Mocked MVP flow: no provider profile is saved yet. Supabase
+                auth, profile editing, document upload, and admin submission
+                will be wired later.
               </MockNotice>
             </div>
           </div>
@@ -230,6 +230,14 @@ function WholesaleReadinessPanel() {
             <div className="mt-3 flex flex-wrap gap-2">
               {featuredProvider.supplierAccountReadiness.map((account) => (
                 <Badge key={account}>{account}</Badge>
+              ))}
+            </div>
+            <p className="mt-4 text-sm font-semibold uppercase tracking-[0.16em] text-zinc-500">
+              Preferred blank distributors
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {featuredProvider.preferredBlankDistributors.map((distributor) => (
+                <Badge key={distributor}>{distributor}</Badge>
               ))}
             </div>
             <p className="mt-4 text-sm leading-6 text-zinc-700">
