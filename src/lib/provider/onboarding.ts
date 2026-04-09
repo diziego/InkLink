@@ -5,6 +5,7 @@ import {
 } from "@/lib/mock-data";
 import {
   createSupabaseServiceRoleClient,
+  ensureDevelopmentAuthIdentity,
   hasSupabaseBrowserEnv,
   hasSupabaseServiceRoleEnv,
 } from "@/lib/supabase";
@@ -318,44 +319,10 @@ export function getGarmentTypeOptionLabel(value: GarmentType) {
 }
 
 async function ensureDevelopmentProviderIdentity(): Promise<DevelopmentProviderIdentity> {
-  const supabase = createSupabaseServiceRoleClient();
-  const email =
-    process.env.DEV_PROVIDER_EMAIL ?? "provider-demo@inklink.local";
-
-  const { data: usersData, error: listUsersError } =
-    await supabase.auth.admin.listUsers({
-      page: 1,
-      perPage: 200,
-    });
-
-  if (listUsersError) {
-    throw new Error(listUsersError.message);
-  }
-
-  const existingUser = usersData.users.find((user) => user.email === email);
-
-  if (existingUser) {
-    return {
-      profileId: existingUser.id,
-      email,
-    };
-  }
-
-  const { data: createdUserData, error: createUserError } =
-    await supabase.auth.admin.createUser({
-      email,
-      password: `${crypto.randomUUID()}Aa1!`,
-      email_confirm: true,
-    });
-
-  if (createUserError || !createdUserData.user) {
-    throw new Error(createUserError?.message ?? "Failed to create dev provider user.");
-  }
-
-  return {
-    profileId: createdUserData.user.id,
-    email,
-  };
+  return ensureDevelopmentAuthIdentity({
+    envKey: "DEV_PROVIDER_EMAIL",
+    fallbackEmail: "provider-demo@inklink.local",
+  });
 }
 
 function getMockFormValues(

@@ -156,6 +156,7 @@ NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...
 DEV_PROVIDER_EMAIL=provider-demo@inklink.local
+DEV_ADMIN_EMAIL=admin-demo@inklink.local
 ```
 
 Run the development server:
@@ -201,7 +202,8 @@ The current pages still work without live Supabase data. The schema and helpers 
 Current live migration status:
 
 - `/provider` can now save and load provider onboarding data from Supabase using a temporary development provider fallback.
-- `/merchant` and `/admin` still use mocked data.
+- `/admin` can now load live provider applications from Supabase and save review decisions using a temporary development admin fallback.
+- `/merchant` still uses mocked data.
 
 ## Deployment
 
@@ -220,7 +222,7 @@ Suggested demo routes:
 - `/` for the product overview
 - `/merchant` for the mocked order and recommendation flow
 - `/provider` for the mocked provider profile
-- `/admin` for the mocked provider review queue
+- `/admin` for the live provider review queue
 
 Deployment note: this version is intentionally frontend-only and uses static mock data. Do not present it as a live fulfillment marketplace, live provider network, or production order system until Supabase, auth, persistence, and real integrations are added.
 
