@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { AppHeader } from "@/components/app-header";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +9,12 @@ import { SectionHeading } from "@/components/ui/section-heading";
 import { StatCard } from "@/components/ui/stat-card";
 import { saveProviderInventoryAction } from "@/actions/provider-inventory";
 import { saveProviderOnboardingAction } from "@/actions/provider-onboarding";
+import {
+  DEV_PROVIDER_OPTIONS,
+  getDevProviderLabel,
+  resolveDevProviderKey,
+  type DevProviderKey,
+} from "@/lib/provider/dev-providers";
 import {
   getGarmentTypeOptionLabel,
   getPrintMethodOptionLabel,
@@ -44,9 +51,12 @@ export default async function ProviderPage({
   searchParams,
 }: ProviderPageProps) {
   const resolvedSearchParams = searchParams ? await searchParams : {};
+  const devProviderKey = resolveDevProviderKey(
+    getStringParam(resolvedSearchParams.devProvider),
+  );
   const [onboardingData, inventoryData] = await Promise.all([
-    loadProviderOnboardingData(),
-    loadProviderInventoryData(),
+    loadProviderOnboardingData(devProviderKey),
+    loadProviderInventoryData(devProviderKey),
   ]);
   const savedFlag = getStringParam(resolvedSearchParams.saved);
   const sourceFlag = getStringParam(resolvedSearchParams.source);
@@ -69,10 +79,14 @@ export default async function ProviderPage({
               description="This route is the first Supabase-backed vertical slice in InkLink. It can now save provider onboarding, capabilities, and wholesale-readiness fields while the rest of the app continues to use mocked data."
             />
             <div className="mt-8">
+              <DevProviderSwitcher selectedKey={devProviderKey} />
+            </div>
+            <div className="mt-4">
               <PersistenceNotice
                 onboardingData={onboardingData}
                 savedFlag={savedFlag}
                 sourceFlag={sourceFlag}
+                devProviderKey={devProviderKey}
               />
             </div>
           </div>
@@ -95,7 +109,10 @@ export default async function ProviderPage({
               Development onboarding form
             </h2>
           </div>
-          <ProviderOnboardingForm values={onboardingData.values} />
+          <ProviderOnboardingForm
+            values={onboardingData.values}
+            devProviderKey={devProviderKey}
+          />
         </section>
 
         <section className="pb-8">
@@ -115,6 +132,7 @@ export default async function ProviderPage({
             inventoryData={inventoryData}
             savedFlag={savedFlag}
             sourceFlag={sourceFlag}
+            devProviderKey={devProviderKey}
           />
         </section>
 
@@ -150,10 +168,12 @@ function PersistenceNotice({
   onboardingData,
   savedFlag,
   sourceFlag,
+  devProviderKey,
 }: {
   onboardingData: ProviderOnboardingData;
   savedFlag: string;
   sourceFlag: string;
+  devProviderKey: DevProviderKey;
 }) {
   if (savedFlag === "inventory" && sourceFlag === "supabase") {
     return (
@@ -178,7 +198,7 @@ function PersistenceNotice({
     return (
       <MockNotice>
         Supabase is configured. This page loads and saves against the
-        development provider profile
+        development provider profile for {getDevProviderLabel(devProviderKey)}
         {onboardingData.developmentProviderEmail
           ? ` (${onboardingData.developmentProviderEmail})`
           : ""}
@@ -196,14 +216,45 @@ function PersistenceNotice({
   );
 }
 
+function DevProviderSwitcher({ selectedKey }: { selectedKey: DevProviderKey }) {
+  return (
+    <Card className="shadow-sm">
+      <p className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-500">
+        Development provider
+      </p>
+      <div className="mt-4 flex flex-wrap gap-2">
+        {DEV_PROVIDER_OPTIONS.map((option) => {
+          const isActive = option.key === selectedKey;
+
+          return (
+            <Link
+              key={option.key}
+              href={`/provider?devProvider=${option.key}`}
+              className={`rounded-md border px-3 py-2 text-sm font-semibold transition ${
+                isActive
+                  ? "border-zinc-950 bg-zinc-950 text-white"
+                  : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400"
+              }`}
+            >
+              {option.label}
+            </Link>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
 function ProviderInventoryForm({
   inventoryData,
   savedFlag,
   sourceFlag,
+  devProviderKey,
 }: {
   inventoryData: ProviderInventoryData;
   savedFlag: string;
   sourceFlag: string;
+  devProviderKey: DevProviderKey;
 }) {
   if (inventoryData.persistenceMode === "supabase" && !inventoryData.hasProviderProfile) {
     return (
@@ -218,6 +269,7 @@ function ProviderInventoryForm({
 
   return (
     <form action={saveProviderInventoryAction} className="grid gap-5">
+      <input type="hidden" name="devProviderKey" value={devProviderKey} />
       {(savedFlag === "inventory" && sourceFlag === "supabase") ? (
         <MockNotice>
           Inventory rows saved. Merchant recommendations will use these live
@@ -408,11 +460,14 @@ function ProfilePanel({
 
 function ProviderOnboardingForm({
   values,
+  devProviderKey,
 }: {
   values: ProviderOnboardingFormValues;
+  devProviderKey: DevProviderKey;
 }) {
   return (
     <form action={saveProviderOnboardingAction} className="grid gap-5">
+      <input type="hidden" name="devProviderKey" value={devProviderKey} />
       <Card className="shadow-sm">
         <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-500">
           Business profile

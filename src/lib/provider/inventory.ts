@@ -5,6 +5,12 @@ import {
   hasSupabaseBrowserEnv,
   hasSupabaseServiceRoleEnv,
 } from "@/lib/supabase";
+import {
+  getDefaultDevProviderKey,
+  getDevProviderEmail,
+  resolveDevProviderKey,
+  type DevProviderKey,
+} from "./dev-providers";
 import type { Database } from "@/types";
 
 const fallbackProviderId = "provider-echo-park-print-works";
@@ -51,7 +57,9 @@ export type ProviderInventoryData = {
   rows: ProviderInventoryFormRow[];
 };
 
-export async function loadProviderInventoryData(): Promise<ProviderInventoryData> {
+export async function loadProviderInventoryData(
+  devProviderKey: DevProviderKey = getDefaultDevProviderKey(),
+): Promise<ProviderInventoryData> {
   if (!hasSupabaseBrowserEnv() || !hasSupabaseServiceRoleEnv()) {
     return {
       persistenceMode: "mock",
@@ -76,7 +84,8 @@ export async function loadProviderInventoryData(): Promise<ProviderInventoryData
 
   const identity = await ensureDevelopmentAuthIdentity({
     envKey: "DEV_PROVIDER_EMAIL",
-    fallbackEmail: "provider-demo@inklink.local",
+    explicitEmail: getDevProviderEmail(devProviderKey),
+    fallbackEmail: getDevProviderEmail(devProviderKey),
   });
   const supabase = createSupabaseServiceRoleClient();
   const providerProfileResponse = await supabase
@@ -134,9 +143,11 @@ export async function loadProviderInventoryData(): Promise<ProviderInventoryData
 }
 
 export async function saveProviderInventoryData(formData: FormData) {
+  const devProviderKey = getDevProviderKeyFromFormData(formData);
   const identity = await ensureDevelopmentAuthIdentity({
     envKey: "DEV_PROVIDER_EMAIL",
-    fallbackEmail: "provider-demo@inklink.local",
+    explicitEmail: getDevProviderEmail(devProviderKey),
+    fallbackEmail: getDevProviderEmail(devProviderKey),
   });
   const supabase = createSupabaseServiceRoleClient();
   const providerProfileResponse = await supabase
@@ -293,4 +304,12 @@ function parseInteger(value: string) {
   const parsedValue = Number.parseInt(value, 10);
 
   return Number.isNaN(parsedValue) ? 0 : parsedValue;
+}
+
+function getDevProviderKeyFromFormData(formData: FormData): DevProviderKey {
+  const value = formData.get("devProviderKey");
+
+  return resolveDevProviderKey(
+    typeof value === "string" ? value : getDefaultDevProviderKey(),
+  );
 }

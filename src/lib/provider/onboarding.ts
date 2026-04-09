@@ -9,6 +9,12 @@ import {
   hasSupabaseBrowserEnv,
   hasSupabaseServiceRoleEnv,
 } from "@/lib/supabase";
+import {
+  getDefaultDevProviderKey,
+  getDevProviderEmail,
+  resolveDevProviderKey,
+  type DevProviderKey,
+} from "./dev-providers";
 import { formatValue } from "@/lib/format";
 import type { Database } from "@/types";
 
@@ -101,7 +107,9 @@ type DevelopmentProviderIdentity = {
   email: string;
 };
 
-export async function loadProviderOnboardingData(): Promise<ProviderOnboardingData> {
+export async function loadProviderOnboardingData(
+  devProviderKey: DevProviderKey = getDefaultDevProviderKey(),
+): Promise<ProviderOnboardingData> {
   if (!hasSupabaseBrowserEnv() || !hasSupabaseServiceRoleEnv()) {
     return {
       values: getMockFormValues(),
@@ -111,7 +119,7 @@ export async function loadProviderOnboardingData(): Promise<ProviderOnboardingDa
     };
   }
 
-  const identity = await ensureDevelopmentProviderIdentity();
+  const identity = await ensureDevelopmentProviderIdentity(devProviderKey);
   const supabase = createSupabaseServiceRoleClient();
 
   const providerProfileResponse = await supabase
@@ -210,7 +218,9 @@ export async function loadProviderOnboardingData(): Promise<ProviderOnboardingDa
 export async function saveProviderOnboardingData(
   formData: FormData,
 ): Promise<{ success: true }> {
-  const identity = await ensureDevelopmentProviderIdentity();
+  const identity = await ensureDevelopmentProviderIdentity(
+    getDevProviderKeyFromFormData(formData),
+  );
   const values = parseProviderOnboardingFormData(formData, identity.email);
   const supabase = createSupabaseServiceRoleClient();
   const profileRecord: ProfileInsert = {
@@ -319,11 +329,22 @@ export function getGarmentTypeOptionLabel(value: GarmentType) {
   return formatValue(value);
 }
 
-async function ensureDevelopmentProviderIdentity(): Promise<DevelopmentProviderIdentity> {
+async function ensureDevelopmentProviderIdentity(
+  devProviderKey: DevProviderKey,
+): Promise<DevelopmentProviderIdentity> {
   return ensureDevelopmentAuthIdentity({
     envKey: "DEV_PROVIDER_EMAIL",
-    fallbackEmail: "provider-demo@inklink.local",
+    explicitEmail: getDevProviderEmail(devProviderKey),
+    fallbackEmail: getDevProviderEmail(devProviderKey),
   });
+}
+
+function getDevProviderKeyFromFormData(formData: FormData): DevProviderKey {
+  const value = formData.get("devProviderKey");
+
+  return resolveDevProviderKey(
+    typeof value === "string" ? value : getDefaultDevProviderKey(),
+  );
 }
 
 function getMockFormValues(

@@ -8,14 +8,16 @@ export type DevelopmentIdentity = {
 type EnsureDevelopmentIdentityOptions = {
   envKey: string;
   fallbackEmail: string;
+  explicitEmail?: string;
 };
 
 export async function ensureDevelopmentAuthIdentity({
   envKey,
   fallbackEmail,
+  explicitEmail,
 }: EnsureDevelopmentIdentityOptions): Promise<DevelopmentIdentity> {
   const supabase = createSupabaseServiceRoleClient();
-  const email = process.env[envKey] ?? fallbackEmail;
+  const email = explicitEmail ?? process.env[envKey] ?? fallbackEmail;
 
   const { data: usersData, error: listUsersError } =
     await supabase.auth.admin.listUsers({
