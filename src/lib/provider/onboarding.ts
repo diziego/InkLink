@@ -480,7 +480,7 @@ function getString(formData: FormData, key: string, fallback: string) {
 }
 
 function getBoolean(formData: FormData, key: string) {
-  return formData.get(key) === "true";
+  return formData.getAll(key).some((value) => value === "true");
 }
 
 function getArray<T extends string>(formData: FormData, key: string): T[] {

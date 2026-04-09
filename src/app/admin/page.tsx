@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { saveProviderQualityMetricsAction } from "@/actions/admin-quality-metrics";
 import { saveAdminProviderReviewAction } from "@/actions/admin-provider-reviews";
 import { AppHeader } from "@/components/app-header";
 import { Badge } from "@/components/ui/badge";
@@ -129,6 +130,15 @@ function AdminNotice({
         Review decision saved to Supabase using the temporary development admin
         fallback. Replace this with authenticated admin ownership in the next
         phase.
+      </MockNotice>
+    );
+  }
+
+  if (savedFlag === "quality-metrics" && sourceFlag === "supabase") {
+    return (
+      <MockNotice>
+        Quality metrics saved to Supabase. Merchant recommendations will pick
+        up the new quality and reliability inputs on the next load.
       </MockNotice>
     );
   }
@@ -370,6 +380,7 @@ function ProviderReviewCard({ item }: { item: AdminProviderReviewItem }) {
             ) : null}
           </div>
           <AdminReviewForm item={item} />
+          <QualityMetricsSeedForm item={item} />
         </div>
       </div>
     </Card>
@@ -469,7 +480,93 @@ function VerifiedProviderCard({ item }: { item: AdminProviderReviewItem }) {
           ? `Last review: ${formatValue(latestReview.decision)} on ${formatDateTime(latestReview.created_at)}`
           : "No review history yet."}
       </p>
+      <div className="mt-4 border-t border-zinc-200 pt-4">
+        <QualityMetricsSeedForm item={item} compact />
+      </div>
     </Card>
+  );
+}
+
+function QualityMetricsSeedForm({
+  item,
+  compact = false,
+}: {
+  item: AdminProviderReviewItem;
+  compact?: boolean;
+}) {
+  const { providerProfile, qualityMetrics } = item;
+
+  return (
+    <form
+      action={saveProviderQualityMetricsAction}
+      className={`grid gap-3 ${compact ? "mt-0" : "mt-4"}`}
+    >
+      <input type="hidden" name="providerProfileId" value={providerProfile.id} />
+      <div className="rounded-md border border-zinc-200 bg-white p-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">
+          Quality metrics seed
+        </p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <MetricField
+            label="Quality score"
+            name="qualityScore"
+            defaultValue={`${Number(qualityMetrics?.quality_score ?? 0)}`}
+          />
+          <MetricField
+            label="Reliability score"
+            name="reliabilityScore"
+            defaultValue={`${Number(qualityMetrics?.reliability_score ?? 0)}`}
+          />
+          <MetricField
+            label="On-time %"
+            name="onTimeDeliveryRatePercent"
+            defaultValue={`${Math.round(Number(qualityMetrics?.on_time_delivery_rate ?? 0) * 100)}`}
+          />
+          <MetricField
+            label="Reprint %"
+            name="reprintRatePercent"
+            defaultValue={`${(Number(qualityMetrics?.reprint_rate ?? 0) * 100).toFixed(1)}`}
+          />
+          <MetricField
+            label="Average rating"
+            name="averageRating"
+            defaultValue={`${Number(qualityMetrics?.average_rating ?? 0)}`}
+          />
+          <MetricField
+            label="Completed orders"
+            name="completedOrders"
+            defaultValue={`${qualityMetrics?.completed_orders ?? 0}`}
+          />
+        </div>
+        <button
+          type="submit"
+          className="mt-3 inline-flex h-10 items-center justify-center rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white transition hover:bg-zinc-800"
+        >
+          Save quality metrics
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function MetricField({
+  label,
+  name,
+  defaultValue,
+}: {
+  label: string;
+  name: string;
+  defaultValue: string;
+}) {
+  return (
+    <label className="text-sm font-medium text-zinc-700">
+      {label}
+      <input
+        name={name}
+        defaultValue={defaultValue}
+        className="mt-2 h-10 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none transition focus:border-zinc-950 focus:ring-2 focus:ring-zinc-950/10"
+      />
+    </label>
   );
 }
 

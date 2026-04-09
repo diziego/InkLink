@@ -6,6 +6,7 @@ import { FieldMetric } from "@/components/ui/field-metric";
 import { MockNotice } from "@/components/ui/mock-notice";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { StatCard } from "@/components/ui/stat-card";
+import { saveProviderInventoryAction } from "@/actions/provider-inventory";
 import { saveProviderOnboardingAction } from "@/actions/provider-onboarding";
 import {
   getGarmentTypeOptionLabel,
@@ -16,6 +17,12 @@ import {
   type ProviderOnboardingData,
   type ProviderOnboardingFormValues,
 } from "@/lib/provider/onboarding";
+import {
+  loadProviderInventoryData,
+  PROVIDER_INVENTORY_GARMENT_OPTIONS,
+  PROVIDER_INVENTORY_STOCK_OPTIONS,
+  type ProviderInventoryData,
+} from "@/lib/provider/inventory";
 
 export const metadata: Metadata = {
   title: "Provider demo | InkLink",
@@ -37,7 +44,10 @@ export default async function ProviderPage({
   searchParams,
 }: ProviderPageProps) {
   const resolvedSearchParams = searchParams ? await searchParams : {};
-  const onboardingData = await loadProviderOnboardingData();
+  const [onboardingData, inventoryData] = await Promise.all([
+    loadProviderOnboardingData(),
+    loadProviderInventoryData(),
+  ]);
   const savedFlag = getStringParam(resolvedSearchParams.saved);
   const sourceFlag = getStringParam(resolvedSearchParams.source);
 
@@ -88,6 +98,26 @@ export default async function ProviderPage({
           <ProviderOnboardingForm values={onboardingData.values} />
         </section>
 
+        <section className="pb-8">
+          <div className="mb-6">
+            <p className="text-sm font-medium uppercase tracking-[0.2em] text-zinc-500">
+              Merchant-facing blanks
+            </p>
+            <h2 className="mt-2 text-3xl font-semibold">
+              Inventory seed rows
+            </h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">
+              Keep this small for now. These rows feed brand/style matching on
+              `/merchant` for the current development provider.
+            </p>
+          </div>
+          <ProviderInventoryForm
+            inventoryData={inventoryData}
+            savedFlag={savedFlag}
+            sourceFlag={sourceFlag}
+          />
+        </section>
+
         <section className="grid gap-5 pb-16 lg:grid-cols-3">
           <StatCard
             label="Persistence"
@@ -125,6 +155,15 @@ function PersistenceNotice({
   savedFlag: string;
   sourceFlag: string;
 }) {
+  if (savedFlag === "inventory" && sourceFlag === "supabase") {
+    return (
+      <MockNotice>
+        Provider inventory seed rows saved to Supabase for merchant-facing
+        blank matching.
+      </MockNotice>
+    );
+  }
+
   if (savedFlag === "1" && sourceFlag === "supabase") {
     return (
       <MockNotice>
@@ -154,6 +193,135 @@ function PersistenceNotice({
       this page is still using local demo data. Once `.env.local` is filled in,
       the same form will save real provider onboarding records.
     </MockNotice>
+  );
+}
+
+function ProviderInventoryForm({
+  inventoryData,
+  savedFlag,
+  sourceFlag,
+}: {
+  inventoryData: ProviderInventoryData;
+  savedFlag: string;
+  sourceFlag: string;
+}) {
+  if (inventoryData.persistenceMode === "supabase" && !inventoryData.hasProviderProfile) {
+    return (
+      <Card className="shadow-sm">
+        <p className="text-sm leading-6 text-zinc-600">
+          Save provider onboarding first. Inventory rows attach to the current
+          live provider profile after the onboarding record exists.
+        </p>
+      </Card>
+    );
+  }
+
+  return (
+    <form action={saveProviderInventoryAction} className="grid gap-5">
+      {(savedFlag === "inventory" && sourceFlag === "supabase") ? (
+        <MockNotice>
+          Inventory rows saved. Merchant recommendations will use these live
+          blanks the next time `/merchant` loads verified providers.
+        </MockNotice>
+      ) : null}
+      <Card className="shadow-sm">
+        <div className="grid gap-4">
+          {inventoryData.rows.map((row, index) => (
+            <div
+              key={`${row.id || "new"}-${index}`}
+              className="rounded-md border border-zinc-200 bg-zinc-50 p-4"
+            >
+              <input
+                type="hidden"
+                name={`inventoryRows.${index}.id`}
+                value={row.id}
+              />
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <FormField label="Blank brand">
+                  <input
+                    name={`inventoryRows.${index}.blankBrand`}
+                    defaultValue={row.blankBrand}
+                    className={inputClassName}
+                  />
+                </FormField>
+                <FormField label="Style name">
+                  <input
+                    name={`inventoryRows.${index}.styleName`}
+                    defaultValue={row.styleName}
+                    className={inputClassName}
+                  />
+                </FormField>
+                <FormField label="Garment type">
+                  <select
+                    name={`inventoryRows.${index}.garmentType`}
+                    defaultValue={row.garmentType}
+                    className={inputClassName}
+                  >
+                    {PROVIDER_INVENTORY_GARMENT_OPTIONS.map((value) => (
+                      <option key={value} value={value}>
+                        {getGarmentTypeOptionLabel(value)}
+                      </option>
+                    ))}
+                  </select>
+                </FormField>
+                <FormField label="Stock status">
+                  <select
+                    name={`inventoryRows.${index}.stockStatus`}
+                    defaultValue={row.stockStatus}
+                    className={inputClassName}
+                  >
+                    {PROVIDER_INVENTORY_STOCK_OPTIONS.map((value) => (
+                      <option key={value} value={value}>
+                        {value.replaceAll("_", " ")}
+                      </option>
+                    ))}
+                  </select>
+                </FormField>
+                <FormField label="Quantity on hand">
+                  <input
+                    name={`inventoryRows.${index}.quantityOnHand`}
+                    type="number"
+                    min="0"
+                    defaultValue={row.quantityOnHand}
+                    className={inputClassName}
+                  />
+                </FormField>
+                <FormField label="Colors">
+                  <input
+                    name={`inventoryRows.${index}.colors`}
+                    defaultValue={row.colors}
+                    className={inputClassName}
+                  />
+                </FormField>
+                <FormField label="Sizes">
+                  <input
+                    name={`inventoryRows.${index}.sizes`}
+                    defaultValue={row.sizes}
+                    className={inputClassName}
+                  />
+                </FormField>
+                <ToggleField
+                  label="Premium blank"
+                  name={`inventoryRows.${index}.isPremiumBlank`}
+                  checked={row.isPremiumBlank}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <button
+          type="submit"
+          className="inline-flex h-11 items-center justify-center rounded-md bg-zinc-950 px-5 text-sm font-semibold text-white transition hover:bg-zinc-800"
+        >
+          Save inventory rows
+        </button>
+        <p className="text-sm text-zinc-600">
+          Development-only seed data for merchant blank brand/style matching.
+        </p>
+      </div>
+    </form>
   );
 }
 

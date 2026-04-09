@@ -6,12 +6,13 @@ import { Card } from "@/components/ui/card";
 import { MockNotice } from "@/components/ui/mock-notice";
 import { SectionHeading } from "@/components/ui/section-heading";
 import {
-  mockBlankInventory,
   mockMerchantOrders,
   mockMerchants,
 } from "@/lib/mock-data";
 import {
-  recommendMockProvidersForOrder,
+  recommendLiveProvidersForOrder,
+} from "@/lib/merchant/recommendations";
+import {
   type ProviderRecommendation,
   type RoutingFactor,
 } from "@/lib/routing";
@@ -24,7 +25,7 @@ import type {
 export const metadata: Metadata = {
   title: "Merchant demo | InkLink",
   description:
-    "Create a mocked DTG order and view transparent local provider recommendations in InkLink.",
+    "Create a mocked DTG order and view transparent local provider recommendations using live verified provider data in InkLink.",
 };
 
 type MerchantPageProps = {
@@ -126,20 +127,21 @@ const defaultMerchant = mockMerchants.find(
   (merchant) => merchant.id === defaultOrder.merchantId,
 );
 
-const blankBrandOptions = Array.from(
-  new Set(mockBlankInventory.map((blank) => blank.blankBrand)),
-).sort();
-
-const blankStyleOptions = Array.from(
-  new Set(mockBlankInventory.map((blank) => blank.styleName)),
-).sort();
-
 export default async function MerchantPage({ searchParams }: MerchantPageProps) {
   const resolvedSearchParams = searchParams ? await searchParams : {};
   const formValues = getOrderFormValues(resolvedSearchParams);
   const order = buildMockOrder(formValues);
-  const recommendations = recommendMockProvidersForOrder(order).slice(0, 3);
+  const recommendationData = await recommendLiveProvidersForOrder(order);
+  const providerData = recommendationData.providerData;
+  const blankBrandOptions = Array.from(
+    new Set(providerData.inventory.map((blank) => blank.blankBrand)),
+  ).sort();
+  const blankStyleOptions = Array.from(
+    new Set(providerData.inventory.map((blank) => blank.styleName)),
+  ).sort();
+  const recommendations = recommendationData.recommendations.slice(0, 3);
   const topRecommendation = recommendations[0];
+  const hasVerifiedProviders = providerData.providers.length > 0;
 
   return (
     <main className="min-h-screen bg-zinc-950 px-6 py-8 text-white sm:px-10 lg:px-16">
@@ -151,21 +153,24 @@ export default async function MerchantPage({ searchParams }: MerchantPageProps) 
             <SectionHeading
               eyebrow="Merchant workspace"
               title="Create a DTG order and compare local providers."
-              description="This screen uses mocked order inputs and the deterministic routing engine. No auth, database writes, payment, or live carrier quotes are active yet."
+              description="This screen keeps mocked order inputs but now routes against live verified provider records from Supabase through the existing deterministic routing engine."
               theme="dark"
             />
             <div className="mt-8">
-              <MockNotice tone="dark">
-                Mocked MVP flow: changing the form rebuilds a temporary order
-                from URL values and reruns provider scoring against static
-                Southern California sample data.
-              </MockNotice>
+              <MerchantNotice
+                persistenceMode={providerData.persistenceMode}
+                hasVerifiedProviders={hasVerifiedProviders}
+              />
             </div>
           </div>
 
           <div className="grid gap-4">
             <DemoScenarioSwitcher />
-            <OrderEntryForm values={formValues} />
+            <OrderEntryForm
+              values={formValues}
+              blankBrandOptions={blankBrandOptions}
+              blankStyleOptions={blankStyleOptions}
+            />
           </div>
         </section>
 
@@ -176,12 +181,12 @@ export default async function MerchantPage({ searchParams }: MerchantPageProps) 
                 Ranked recommendations
               </p>
               <h2 className="mt-2 text-3xl font-semibold">
-                Top providers for this mocked order
+                Top providers for this order
               </h2>
             </div>
             <p className="text-sm text-zinc-400">
-              Merchant: {defaultMerchant?.businessName ?? "Mock merchant"} -
-              Print method: DTG
+              Merchant: {defaultMerchant?.businessName ?? "Mock merchant"} - Print
+              method: DTG
             </p>
           </div>
 
@@ -189,22 +194,74 @@ export default async function MerchantPage({ searchParams }: MerchantPageProps) 
             <FirstRankSummary recommendation={topRecommendation} />
           ) : null}
 
-          <div className="grid gap-5">
-            {recommendations.map((recommendation, index) => (
-              <RecommendationCard
-                key={recommendation.providerId}
-                rank={index + 1}
-                recommendation={recommendation}
-              />
-            ))}
-          </div>
+          {recommendations.length > 0 ? (
+            <div className="grid gap-5">
+              {recommendations.map((recommendation, index) => (
+                <RecommendationCard
+                  key={recommendation.providerId}
+                  rank={index + 1}
+                  recommendation={recommendation}
+                />
+              ))}
+            </div>
+          ) : (
+            <EmptyRecommendationState
+              persistenceMode={providerData.persistenceMode}
+              hasVerifiedProviders={hasVerifiedProviders}
+            />
+          )}
         </section>
       </div>
     </main>
   );
 }
 
-function OrderEntryForm({ values }: { values: OrderFormValues }) {
+function MerchantNotice({
+  persistenceMode,
+  hasVerifiedProviders,
+}: {
+  persistenceMode: "unconfigured" | "supabase";
+  hasVerifiedProviders: boolean;
+}) {
+  if (persistenceMode === "unconfigured") {
+    return (
+      <MockNotice tone="dark">
+        Supabase is not configured in this environment yet. The merchant form
+        still builds a temporary order preview, but live provider matching is
+        unavailable until the Supabase environment variables are set.
+      </MockNotice>
+    );
+  }
+
+  if (!hasVerifiedProviders) {
+    return (
+      <MockNotice tone="dark">
+        Live merchant mode is active, but there are no verified providers in
+        Supabase yet. Approve a provider in `/admin` to populate this matching
+        view.
+      </MockNotice>
+    );
+  }
+
+  return (
+    <MockNotice tone="dark">
+      Merchant order inputs remain mocked and URL-driven, but provider
+      recommendations now use live verified provider records from Supabase.
+      Shipping, distance, and blank-fit calculations remain mocked inside the
+      routing engine.
+    </MockNotice>
+  );
+}
+
+function OrderEntryForm({
+  values,
+  blankBrandOptions,
+  blankStyleOptions,
+}: {
+  values: OrderFormValues;
+  blankBrandOptions: string[];
+  blankStyleOptions: string[];
+}) {
   return (
     <form
       action="/merchant"
@@ -219,7 +276,7 @@ function OrderEntryForm({ values }: { values: OrderFormValues }) {
         </h2>
         <p className="mt-2 text-sm leading-6 text-zinc-600">
           Values are not saved. Submitting updates the URL and reruns routing
-          with mocked data.
+          against the current verified provider pool.
         </p>
       </div>
 
@@ -360,8 +417,38 @@ function DemoScenarioSwitcher() {
         ))}
       </div>
       <p className="mt-3 text-sm leading-6 text-zinc-300">
-        Presets only change mocked URL values. The form below still drives the
-        recommendation results.
+        Presets only change mocked order values. The form below still drives
+        the recommendation results.
+      </p>
+    </Card>
+  );
+}
+
+function EmptyRecommendationState({
+  persistenceMode,
+  hasVerifiedProviders,
+}: {
+  persistenceMode: "unconfigured" | "supabase";
+  hasVerifiedProviders: boolean;
+}) {
+  const title =
+    persistenceMode === "unconfigured"
+      ? "Live provider matching is not configured"
+      : hasVerifiedProviders
+        ? "No recommendations matched this order"
+        : "No verified providers available";
+  const description =
+    persistenceMode === "unconfigured"
+      ? "Add the Supabase environment variables in this environment to load verified providers into the merchant matching flow."
+      : hasVerifiedProviders
+        ? "Verified providers were loaded, but none produced a recommendation for this order shape."
+        : "Approve at least one provider in /admin, then reload this page to generate live recommendations.";
+
+  return (
+    <Card className="border-white/15 bg-white/10 text-white">
+      <h3 className="text-2xl font-semibold">{title}</h3>
+      <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-300">
+        {description}
       </p>
     </Card>
   );
