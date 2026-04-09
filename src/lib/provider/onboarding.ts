@@ -241,6 +241,7 @@ export async function saveProviderOnboardingData(
     zip: values.zip,
     service_radius_miles: parseInteger(values.serviceRadiusMiles),
     supports_local_pickup: values.supportsLocalPickup,
+    verification_status: "pending",
     turnaround_sla_days: parseInteger(values.turnaroundSlaDays),
     daily_capacity_units: parseInteger(values.dailyCapacityUnits),
     current_capacity_used: parseInteger(values.currentCapacityUsed),
