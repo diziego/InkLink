@@ -6,38 +6,46 @@ import { FieldMetric } from "@/components/ui/field-metric";
 import { MockNotice } from "@/components/ui/mock-notice";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { StatCard } from "@/components/ui/stat-card";
+import { saveProviderOnboardingAction } from "@/actions/provider-onboarding";
 import {
-  mockBlankInventory,
-  mockProviderCapabilities,
-  mockProviderQualityMetrics,
-  mockProviders,
-} from "@/lib/mock-data";
-import { formatValue } from "@/lib/format";
+  getGarmentTypeOptionLabel,
+  getPrintMethodOptionLabel,
+  loadProviderOnboardingData,
+  PROVIDER_GARMENT_TYPE_OPTIONS,
+  PROVIDER_PRINT_METHOD_OPTIONS,
+  type ProviderOnboardingData,
+  type ProviderOnboardingFormValues,
+} from "@/lib/provider/onboarding";
 
 export const metadata: Metadata = {
   title: "Provider demo | InkLink",
   description:
-    "Review a mocked provider onboarding profile with routing-relevant capability, capacity, and verification signals.",
+    "Review and save a development provider onboarding profile with routing-relevant capability, capacity, and wholesale-readiness fields.",
 };
 
-const featuredProvider = mockProviders[0];
-const featuredCapability = mockProviderCapabilities.find(
-  (capability) => capability.providerId === featuredProvider.id,
-);
-const featuredQuality = mockProviderQualityMetrics.find(
-  (metrics) => metrics.providerId === featuredProvider.id,
-);
-const featuredInventory = mockBlankInventory.filter(
-  (blank) => blank.providerId === featuredProvider.id,
-);
-const availableCapacity =
-  featuredProvider.dailyCapacityUnits - featuredProvider.currentCapacityUsed;
-const capacityUsePercent = Math.round(
-  (featuredProvider.currentCapacityUsed / featuredProvider.dailyCapacityUnits) *
-    100,
-);
+type ProviderPageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
 
-export default function ProviderPage() {
+const inputClassName =
+  "mt-2 h-11 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none transition focus:border-zinc-950 focus:ring-2 focus:ring-zinc-950/10";
+const textareaClassName =
+  "mt-2 min-h-28 w-full rounded-md border border-zinc-300 bg-white px-3 py-3 text-sm outline-none transition focus:border-zinc-950 focus:ring-2 focus:ring-zinc-950/10";
+const labelClassName = "text-sm font-medium text-zinc-700";
+
+export default async function ProviderPage({
+  searchParams,
+}: ProviderPageProps) {
+  const resolvedSearchParams = searchParams ? await searchParams : {};
+  const onboardingData = await loadProviderOnboardingData();
+  const savedFlag = getStringParam(resolvedSearchParams.saved);
+  const sourceFlag = getStringParam(resolvedSearchParams.source);
+
+  const availableCapacity =
+    Number.parseInt(onboardingData.values.dailyCapacityUnits, 10) -
+    Number.parseInt(onboardingData.values.currentCapacityUsed, 10);
+  const capacityUsePercent = getCapacityUsePercent(onboardingData.values);
+
   return (
     <main className="min-h-screen bg-zinc-50 px-6 py-8 text-zinc-950 sm:px-10 lg:px-16">
       <div className="mx-auto max-w-6xl">
@@ -48,47 +56,59 @@ export default function ProviderPage() {
             <SectionHeading
               eyebrow="Provider onboarding"
               title="List shop capabilities before receiving matched DTG work."
-              description="This is a mocked provider profile screen using static marketplace data. These fields are the same signals the routing engine reads when recommending providers to merchants."
+              description="This route is the first Supabase-backed vertical slice in InkLink. It can now save provider onboarding, capabilities, and wholesale-readiness fields while the rest of the app continues to use mocked data."
             />
             <div className="mt-8">
-              <MockNotice>
-                Mocked MVP flow: no provider profile is saved yet. Supabase
-                auth, profile editing, document upload, and admin submission
-                will be wired later.
-              </MockNotice>
+              <PersistenceNotice
+                onboardingData={onboardingData}
+                savedFlag={savedFlag}
+                sourceFlag={sourceFlag}
+              />
             </div>
           </div>
 
-          <ProfilePanel />
+          <ProfilePanel
+            values={onboardingData.values}
+            qualityScoreLabel={onboardingData.qualityScoreLabel}
+            capacityUsePercent={capacityUsePercent}
+            hasPersistedRecord={onboardingData.hasPersistedRecord}
+            lastSavedAt={onboardingData.lastSavedAt}
+          />
         </section>
 
         <section className="pb-8">
           <div className="mb-6">
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-zinc-500">
-              Wholesale readiness
+              Provider application
             </p>
             <h2 className="mt-2 text-3xl font-semibold">
-              Mock provider application details
+              Development onboarding form
             </h2>
           </div>
-          <WholesaleReadinessPanel />
+          <ProviderOnboardingForm values={onboardingData.values} />
         </section>
 
         <section className="grid gap-5 pb-16 lg:grid-cols-3">
           <StatCard
-            label="Verification and tier"
-            value={`${formatValue(featuredProvider.verificationStatus)} / ${formatValue(featuredProvider.tier)}`}
-            description="Verified and preferred providers receive stronger routing scores than pending emerging providers."
+            label="Persistence"
+            value={
+              onboardingData.persistenceMode === "supabase"
+                ? onboardingData.hasPersistedRecord
+                  ? "Live record"
+                  : "Ready to save"
+                : "Mock only"
+            }
+            description="Provider onboarding now persists to Supabase when environment variables are configured."
           />
           <StatCard
             label="Capacity"
             value={`${availableCapacity} units open`}
-            description="The routing engine compares requested order quantity against daily capacity minus current usage."
+            description="This still matches the routing engine inputs, even though /merchant and /admin remain mocked for now."
           />
           <StatCard
             label="Turnaround and pickup"
-            value={`${featuredProvider.turnaroundSlaDays} days / ${featuredProvider.supportsLocalPickup ? "pickup yes" : "pickup no"}`}
-            description="Shorter SLA and local pickup support can improve recommendations when the merchant goal matches."
+            value={`${onboardingData.values.turnaroundSlaDays} days / ${onboardingData.values.supportsLocalPickup ? "pickup yes" : "pickup no"}`}
+            description="Saved values here are intended to become the real source for provider review and future routing migration."
           />
         </section>
       </div>
@@ -96,21 +116,82 @@ export default function ProviderPage() {
   );
 }
 
-function ProfilePanel() {
+function PersistenceNotice({
+  onboardingData,
+  savedFlag,
+  sourceFlag,
+}: {
+  onboardingData: ProviderOnboardingData;
+  savedFlag: string;
+  sourceFlag: string;
+}) {
+  if (savedFlag === "1" && sourceFlag === "supabase") {
+    return (
+      <MockNotice>
+        Saved to Supabase using the temporary development provider fallback.
+        Replace this with real authenticated provider ownership in the next
+        phase.
+      </MockNotice>
+    );
+  }
+
+  if (onboardingData.persistenceMode === "supabase") {
+    return (
+      <MockNotice>
+        Supabase is configured. This page loads and saves against the
+        development provider profile
+        {onboardingData.developmentProviderEmail
+          ? ` (${onboardingData.developmentProviderEmail})`
+          : ""}
+        . Merchant and admin screens still use mock data for now.
+      </MockNotice>
+    );
+  }
+
+  return (
+    <MockNotice>
+      Mocked MVP fallback: Supabase environment variables are not configured, so
+      this page is still using local demo data. Once `.env.local` is filled in,
+      the same form will save real provider onboarding records.
+    </MockNotice>
+  );
+}
+
+function ProfilePanel({
+  values,
+  qualityScoreLabel,
+  capacityUsePercent,
+  hasPersistedRecord,
+  lastSavedAt,
+}: {
+  values: ProviderOnboardingFormValues;
+  qualityScoreLabel: string;
+  capacityUsePercent: number;
+  hasPersistedRecord: boolean;
+  lastSavedAt?: string;
+}) {
+  const availableCapacity =
+    Number.parseInt(values.dailyCapacityUnits, 10) -
+    Number.parseInt(values.currentCapacityUsed, 10);
+
   return (
     <Card className="shadow-sm">
       <div className="flex flex-col gap-4 border-b border-zinc-200 pb-5 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-500">
-            Mock provider profile
+            {hasPersistedRecord ? "Saved provider profile" : "Development provider profile"}
           </p>
-          <h2 className="mt-2 text-2xl font-semibold">
-            {featuredProvider.businessName}
-          </h2>
+          <h2 className="mt-2 text-2xl font-semibold">{values.businessName}</h2>
           <p className="mt-2 text-sm leading-6 text-zinc-600">
-            {featuredProvider.contactName} - {featuredProvider.city},{" "}
-            {featuredProvider.state} {featuredProvider.zip}
+            {values.contactName} - {values.city}, {values.state} {values.zip}
           </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Badge>{values.businessType || "Business type pending"}</Badge>
+            <Badge>
+              {values.supportsLocalPickup ? "Local pickup" : "No pickup"}
+            </Badge>
+            <Badge>{`${values.yearsInOperation || "0"} years active`}</Badge>
+          </div>
         </div>
         <div className="rounded-md bg-zinc-950 px-5 py-4 text-white">
           <p className="text-xs uppercase tracking-[0.16em] text-zinc-400">
@@ -121,132 +202,271 @@ function ProfilePanel() {
       </div>
 
       <dl className="mt-5 grid gap-4 sm:grid-cols-2">
-        <FieldMetric label="Verification" value={formatValue(featuredProvider.verificationStatus)} />
-        <FieldMetric label="Provider tier" value={formatValue(featuredProvider.tier)} />
-        <FieldMetric label="Turnaround SLA" value={`${featuredProvider.turnaroundSlaDays} days`} />
-        <FieldMetric label="Daily capacity" value={`${featuredProvider.dailyCapacityUnits} units`} />
-        <FieldMetric label="Current capacity used" value={`${featuredProvider.currentCapacityUsed} units`} />
-        <FieldMetric label="Local pickup" value={featuredProvider.supportsLocalPickup ? "Supported" : "Not supported"} />
+        <FieldMetric label="Turnaround SLA" value={`${values.turnaroundSlaDays} days`} />
+        <FieldMetric label="Daily capacity" value={`${values.dailyCapacityUnits} units`} />
+        <FieldMetric label="Current capacity used" value={`${values.currentCapacityUsed} units`} />
+        <FieldMetric label="Open capacity" value={`${availableCapacity} units`} />
+        <FieldMetric label="Quality score" value={qualityScoreLabel} />
+        <FieldMetric
+          label="Last saved"
+          value={lastSavedAt ? formatDateTime(lastSavedAt) : "Not saved yet"}
+        />
       </dl>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
         <TagGroup
           title="Supported print methods"
-          values={featuredCapability?.printMethods.map(formatValue) ?? []}
+          values={values.printMethods.map(getPrintMethodOptionLabel)}
         />
         <TagGroup
           title="Garment compatibility"
-          values={featuredCapability?.garmentTypes.map(formatValue) ?? []}
+          values={values.garmentTypes.map(getGarmentTypeOptionLabel)}
         />
       </div>
 
       <div className="mt-6 rounded-md border border-zinc-200 bg-zinc-50 p-4">
         <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-500">
-          Quality and inventory snapshot
+          Wholesale readiness snapshot
         </h3>
         <div className="mt-4 grid gap-4 sm:grid-cols-3">
-          <FieldMetric
-            label="Quality score"
-            value={`${featuredQuality?.qualityScore ?? 0}/100`}
-          />
-          <FieldMetric
-            label="On-time delivery"
-            value={`${Math.round((featuredQuality?.onTimeDeliveryRate ?? 0) * 100)}%`}
-          />
-          <FieldMetric
-            label="Premium blanks"
-            value={`${featuredInventory.filter((blank) => blank.isPremiumBlank).length} styles`}
-          />
+          <FieldMetric label="Seller's permit" value={values.sellersPermitNumber || "Not provided"} />
+          <FieldMetric label="EIN / tax ID" value={values.einPlaceholder || "Not provided"} />
+          <FieldMetric label="Fulfillment cutoff" value={values.fulfillmentCutoffTime || "Not provided"} />
         </div>
       </div>
     </Card>
   );
 }
 
-function WholesaleReadinessPanel() {
+function ProviderOnboardingForm({
+  values,
+}: {
+  values: ProviderOnboardingFormValues;
+}) {
   return (
-    <Card className="shadow-sm">
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div>
-          <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-500">
-            Business profile
-          </h3>
-          <dl className="mt-4 grid gap-4 sm:grid-cols-2">
-            <FieldMetric
-              label="Legal business name"
-              value={featuredProvider.legalBusinessName}
-            />
-            <FieldMetric
-              label="DBA / shop name"
-              value={featuredProvider.dbaName ?? featuredProvider.businessName}
-            />
-            <FieldMetric label="Contact name" value={featuredProvider.contactName} />
-            <FieldMetric
-              label="Business email"
-              value={featuredProvider.businessEmail}
-            />
-            <FieldMetric label="Phone" value={featuredProvider.phone} />
-            <FieldMetric
-              label="Business type"
-              value={featuredProvider.businessType}
-            />
-            <FieldMetric
-              label="Years in operation"
-              value={`${featuredProvider.yearsInOperation} years`}
-            />
-            <FieldMetric
-              label="Business address"
-              value={`${featuredProvider.streetAddress}, ${featuredProvider.city}, ${featuredProvider.state} ${featuredProvider.zip}`}
-            />
-          </dl>
+    <form action={saveProviderOnboardingAction} className="grid gap-5">
+      <Card className="shadow-sm">
+        <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-500">
+          Business profile
+        </h3>
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <FormField label="Business name">
+            <input name="businessName" defaultValue={values.businessName} className={inputClassName} />
+          </FormField>
+          <FormField label="Legal business name">
+            <input name="legalBusinessName" defaultValue={values.legalBusinessName} className={inputClassName} />
+          </FormField>
+          <FormField label="DBA / shop name">
+            <input name="dbaName" defaultValue={values.dbaName} className={inputClassName} />
+          </FormField>
+          <FormField label="Contact name">
+            <input name="contactName" defaultValue={values.contactName} className={inputClassName} />
+          </FormField>
+          <FormField label="Business email">
+            <input name="businessEmail" type="email" defaultValue={values.businessEmail} className={inputClassName} />
+          </FormField>
+          <FormField label="Phone">
+            <input name="phone" defaultValue={values.phone} className={inputClassName} />
+          </FormField>
+          <FormField label="Street address" className="sm:col-span-2">
+            <input name="streetAddress" defaultValue={values.streetAddress} className={inputClassName} />
+          </FormField>
+          <FormField label="City">
+            <input name="city" defaultValue={values.city} className={inputClassName} />
+          </FormField>
+          <FormField label="State">
+            <input name="state" defaultValue={values.state} className={inputClassName} />
+          </FormField>
+          <FormField label="ZIP">
+            <input name="zip" defaultValue={values.zip} className={inputClassName} />
+          </FormField>
+          <FormField label="Business type">
+            <input name="businessType" defaultValue={values.businessType} className={inputClassName} />
+          </FormField>
+          <FormField label="Years in operation">
+            <input name="yearsInOperation" type="number" min="0" defaultValue={values.yearsInOperation} className={inputClassName} />
+          </FormField>
+        </div>
+      </Card>
+
+      <Card className="shadow-sm">
+        <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-500">
+          Capability and fulfillment
+        </h3>
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <FormField label="Turnaround SLA (days)">
+            <input name="turnaroundSlaDays" type="number" min="1" defaultValue={values.turnaroundSlaDays} className={inputClassName} />
+          </FormField>
+          <FormField label="Service radius (miles)">
+            <input name="serviceRadiusMiles" type="number" min="0" defaultValue={values.serviceRadiusMiles} className={inputClassName} />
+          </FormField>
+          <FormField label="Daily capacity (units)">
+            <input name="dailyCapacityUnits" type="number" min="0" defaultValue={values.dailyCapacityUnits} className={inputClassName} />
+          </FormField>
+          <FormField label="Current capacity used">
+            <input name="currentCapacityUsed" type="number" min="0" defaultValue={values.currentCapacityUsed} className={inputClassName} />
+          </FormField>
+          <FormField label="Max order quantity">
+            <input name="maxOrderQuantity" type="number" min="0" defaultValue={values.maxOrderQuantity} className={inputClassName} />
+          </FormField>
+          <FormField label="Fulfillment cutoff time">
+            <input name="fulfillmentCutoffTime" defaultValue={values.fulfillmentCutoffTime} className={inputClassName} />
+          </FormField>
+          <FormField label="Reorder lead time (days)">
+            <input name="reorderLeadTimeDays" type="number" min="0" defaultValue={values.reorderLeadTimeDays} className={inputClassName} />
+          </FormField>
+          <FormField label="Specialties" className="sm:col-span-2">
+            <textarea name="specialties" defaultValue={values.specialties} className={textareaClassName} />
+          </FormField>
         </div>
 
-        <div>
-          <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-500">
-            Wholesale and sourcing
-          </h3>
-          <dl className="mt-4 grid gap-4 sm:grid-cols-2">
-            <FieldMetric
-              label="Seller's permit"
-              value={featuredProvider.sellersPermitNumber}
-            />
-            <FieldMetric
-              label="EIN / tax ID"
-              value={featuredProvider.einPlaceholder}
-            />
-            <FieldMetric
-              label="Fulfillment cutoff"
-              value={featuredProvider.fulfillmentCutoffTime}
-            />
-            <FieldMetric
-              label="Reorder lead time"
-              value={`${featuredProvider.reorderLeadTimeDays} days`}
-            />
-          </dl>
-          <div className="mt-5 rounded-md border border-zinc-200 bg-zinc-50 p-4">
-            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-500">
-              Supplier account readiness
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {featuredProvider.supplierAccountReadiness.map((account) => (
-                <Badge key={account}>{account}</Badge>
-              ))}
-            </div>
-            <p className="mt-4 text-sm font-semibold uppercase tracking-[0.16em] text-zinc-500">
-              Preferred blank distributors
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {featuredProvider.preferredBlankDistributors.map((distributor) => (
-                <Badge key={distributor}>{distributor}</Badge>
-              ))}
-            </div>
-            <p className="mt-4 text-sm leading-6 text-zinc-700">
-              {featuredProvider.blankSourcingNotes}
-            </p>
-          </div>
+        <div className="mt-5 grid gap-5 lg:grid-cols-2">
+          <CheckboxGroup
+            label="Supported print methods"
+            name="printMethods"
+            options={PROVIDER_PRINT_METHOD_OPTIONS.map((value) => ({
+              value,
+              label: getPrintMethodOptionLabel(value),
+            }))}
+            selectedValues={values.printMethods}
+          />
+          <CheckboxGroup
+            label="Garment compatibility"
+            name="garmentTypes"
+            options={PROVIDER_GARMENT_TYPE_OPTIONS.map((value) => ({
+              value,
+              label: getGarmentTypeOptionLabel(value),
+            }))}
+            selectedValues={values.garmentTypes}
+          />
         </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <ToggleField
+            label="Supports local pickup"
+            name="supportsLocalPickup"
+            checked={values.supportsLocalPickup}
+          />
+          <ToggleField
+            label="Accepts premium blanks"
+            name="acceptsPremiumBlanks"
+            checked={values.acceptsPremiumBlanks}
+          />
+        </div>
+      </Card>
+
+      <Card className="shadow-sm">
+        <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-500">
+          Wholesale readiness
+        </h3>
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <FormField label="Seller's permit / resale certificate">
+            <input name="sellersPermitNumber" defaultValue={values.sellersPermitNumber} className={inputClassName} />
+          </FormField>
+          <FormField label="EIN / tax ID placeholder">
+            <input name="einPlaceholder" defaultValue={values.einPlaceholder} className={inputClassName} />
+          </FormField>
+          <FormField label="Supplier account readiness" className="sm:col-span-2">
+            <textarea name="supplierAccountReadiness" defaultValue={values.supplierAccountReadiness} className={textareaClassName} />
+          </FormField>
+          <FormField label="Preferred blank distributors" className="sm:col-span-2">
+            <textarea name="preferredBlankDistributors" defaultValue={values.preferredBlankDistributors} className={textareaClassName} />
+          </FormField>
+          <FormField label="Blank sourcing notes" className="sm:col-span-2">
+            <textarea name="blankSourcingNotes" defaultValue={values.blankSourcingNotes} className={textareaClassName} />
+          </FormField>
+        </div>
+      </Card>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <button
+          type="submit"
+          className="inline-flex h-11 items-center justify-center rounded-md bg-zinc-950 px-5 text-sm font-semibold text-white transition hover:bg-zinc-800"
+        >
+          Save provider onboarding
+        </button>
+        <p className="text-sm text-zinc-600">
+          Temporary development persistence only. Real provider ownership will
+          replace this fallback after auth is added.
+        </p>
       </div>
-    </Card>
+    </form>
+  );
+}
+
+function FormField({
+  label,
+  children,
+  className = "",
+}: {
+  label: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <label className={`${labelClassName} ${className}`}>
+      {label}
+      {children}
+    </label>
+  );
+}
+
+function CheckboxGroup({
+  label,
+  name,
+  options,
+  selectedValues,
+}: {
+  label: string;
+  name: string;
+  options: { value: string; label: string }[];
+  selectedValues: string[];
+}) {
+  return (
+    <div>
+      <p className={labelClassName}>{label}</p>
+      <div className="mt-3 grid gap-2">
+        {options.map((option) => (
+          <label
+            key={option.value}
+            className="flex items-start gap-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700"
+          >
+            <input
+              type="checkbox"
+              name={name}
+              value={option.value}
+              defaultChecked={selectedValues.includes(option.value)}
+              className="mt-1 h-4 w-4 accent-zinc-950"
+            />
+            <span>{option.label}</span>
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ToggleField({
+  label,
+  name,
+  checked,
+}: {
+  label: string;
+  name: string;
+  checked: boolean;
+}) {
+  return (
+    <label className="flex items-start gap-3 rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-700">
+      <input type="hidden" name={name} value="false" />
+      <input
+        type="checkbox"
+        name={name}
+        value="true"
+        defaultChecked={checked}
+        className="mt-1 h-4 w-4 accent-zinc-950"
+      />
+      <span>{label}</span>
+    </label>
   );
 }
 
@@ -263,4 +483,30 @@ function TagGroup({ title, values }: { title: string; values: string[] }) {
       </div>
     </div>
   );
+}
+
+function getCapacityUsePercent(values: ProviderOnboardingFormValues) {
+  const dailyCapacityUnits = Number.parseInt(values.dailyCapacityUnits, 10);
+  const currentCapacityUsed = Number.parseInt(values.currentCapacityUsed, 10);
+
+  if (!dailyCapacityUnits) {
+    return 0;
+  }
+
+  return Math.round((currentCapacityUsed / dailyCapacityUnits) * 100);
+}
+
+function getStringParam(value: string | string[] | undefined) {
+  if (Array.isArray(value)) {
+    return value[0] ?? "";
+  }
+
+  return value ?? "";
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat("en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
 }

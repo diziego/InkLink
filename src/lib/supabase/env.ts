@@ -35,3 +35,7 @@ export function hasSupabaseBrowserEnv() {
       readEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
   );
 }
+
+export function hasSupabaseServiceRoleEnv() {
+  return Boolean(readEnv("SUPABASE_SERVICE_ROLE_KEY"));
+}

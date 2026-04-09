@@ -155,6 +155,7 @@ Add your Supabase project values to `.env.local` when you are ready to test live
 NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...
+DEV_PROVIDER_EMAIL=provider-demo@inklink.local
 ```
 
 Run the development server:
@@ -196,6 +197,11 @@ supabase/migrations/20260408_0001_initial_schema.sql
 ```
 
 The current pages still work without live Supabase data. The schema and helpers are in place so the app can migrate gradually instead of switching all screens at once.
+
+Current live migration status:
+
+- `/provider` can now save and load provider onboarding data from Supabase using a temporary development provider fallback.
+- `/merchant` and `/admin` still use mocked data.
 
 ## Deployment
 
