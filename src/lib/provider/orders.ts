@@ -1,6 +1,17 @@
 import { createSupabaseServiceRoleClient } from "@/lib/supabase";
 import type { FulfillmentGoal, GarmentType } from "@/types";
 
+export type OrderStatus =
+  | "draft"
+  | "ready_for_routing"
+  | "routed"
+  | "accepted"
+  | "in_production"
+  | "ready"
+  | "shipped"
+  | "completed"
+  | "cancelled";
+
 export type ProviderAssignment = {
   id: string;
   merchantOrderId: string;
@@ -12,6 +23,7 @@ export type ProviderAssignment = {
   quantity: number;
   fulfillmentZip: string;
   fulfillmentGoal: FulfillmentGoal;
+  orderStatus: OrderStatus;
 };
 
 export type ProviderAssignments = {
@@ -53,14 +65,14 @@ export async function loadProviderAssignments(
 
   // Load merchant orders
   const ordersResult = await (supabase.from("merchant_orders") as any)
-    .select("id, fulfillment_zip, fulfillment_goal")
+    .select("id, fulfillment_zip, fulfillment_goal, status")
     .in("id", orderIds);
 
   if (ordersResult.error) throw new Error(ordersResult.error.message);
 
   const ordersById = new Map<
     string,
-    { fulfillment_zip: string; fulfillment_goal: string }
+    { fulfillment_zip: string; fulfillment_goal: string; status: string }
   >();
   for (const row of ordersResult.data ?? []) {
     ordersById.set(row.id, row);
@@ -96,6 +108,7 @@ export async function loadProviderAssignments(
       quantity: item?.quantity ?? 0,
       fulfillmentZip: order?.fulfillment_zip ?? "",
       fulfillmentGoal: (order?.fulfillment_goal ?? "local_first") as FulfillmentGoal,
+      orderStatus: (order?.status ?? "accepted") as OrderStatus,
     };
   });
 

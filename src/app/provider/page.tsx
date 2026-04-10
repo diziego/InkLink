@@ -8,6 +8,7 @@ import { MockNotice } from "@/components/ui/mock-notice";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { StatCard } from "@/components/ui/stat-card";
 import { acceptAssignmentAction, declineAssignmentAction } from "@/actions/provider-orders";
+import { advanceOrderStatusAction } from "@/actions/provider-order-status";
 import { saveProviderInventoryAction } from "@/actions/provider-inventory";
 import { saveProviderOnboardingAction } from "@/actions/provider-onboarding";
 import {
@@ -772,34 +773,72 @@ function IncomingOrders({
   );
 }
 
+const ORDER_STATUS_LABELS: Record<string, string> = {
+  accepted: "Accepted",
+  in_production: "In production",
+  ready: "Ready for pickup / ship",
+  shipped: "Shipped",
+  completed: "Completed",
+};
+
+const NEXT_STATUS_LABELS: Record<string, string> = {
+  accepted: "Start production",
+  in_production: "Mark as ready",
+  ready: "Mark as shipped",
+  shipped: "Mark as completed",
+};
+
 function AcceptedOrders({ assignments }: { assignments: ProviderAssignment[] }) {
   return (
     <div className="grid gap-4">
-      {assignments.map((assignment) => (
-        <Card key={assignment.id} className="shadow-sm">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <FieldMetric
-              label="Garment"
-              value={assignment.garmentType.replaceAll("_", " ")}
-            />
-            <FieldMetric
-              label="Quantity"
-              value={`${assignment.quantity} units`}
-            />
-            <FieldMetric
-              label="Fulfillment ZIP"
-              value={assignment.fulfillmentZip}
-            />
-            <FieldMetric
-              label="Goal"
-              value={assignment.fulfillmentGoal.replaceAll("_", " ")}
-            />
-          </div>
-          <p className="mt-3 text-xs text-zinc-400">
-            Accepted {assignment.respondedAt ? formatDateTime(assignment.respondedAt) : "—"}
-          </p>
-        </Card>
-      ))}
+      {assignments.map((assignment) => {
+        const statusLabel = ORDER_STATUS_LABELS[assignment.orderStatus] ?? assignment.orderStatus.replaceAll("_", " ");
+        const nextLabel = NEXT_STATUS_LABELS[assignment.orderStatus];
+
+        return (
+          <Card key={assignment.id} className="shadow-sm">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <FieldMetric
+                  label="Garment"
+                  value={assignment.garmentType.replaceAll("_", " ")}
+                />
+                <FieldMetric
+                  label="Quantity"
+                  value={`${assignment.quantity} units`}
+                />
+                <FieldMetric
+                  label="Fulfillment ZIP"
+                  value={assignment.fulfillmentZip}
+                />
+                <FieldMetric
+                  label="Goal"
+                  value={assignment.fulfillmentGoal.replaceAll("_", " ")}
+                />
+              </div>
+              <div className="flex shrink-0 flex-col items-end gap-2">
+                <span className="inline-flex items-center rounded-md bg-zinc-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-zinc-600">
+                  {statusLabel}
+                </span>
+                {nextLabel ? (
+                  <form action={advanceOrderStatusAction}>
+                    <input type="hidden" name="merchantOrderId" value={assignment.merchantOrderId} />
+                    <button
+                      type="submit"
+                      className="inline-flex h-9 items-center justify-center rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white transition hover:bg-zinc-800"
+                    >
+                      {nextLabel}
+                    </button>
+                  </form>
+                ) : null}
+              </div>
+            </div>
+            <p className="mt-3 text-xs text-zinc-400">
+              Accepted {assignment.respondedAt ? formatDateTime(assignment.respondedAt) : "—"}
+            </p>
+          </Card>
+        );
+      })}
     </div>
   );
 }
