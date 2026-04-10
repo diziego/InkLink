@@ -18,18 +18,7 @@ export async function ensureDevelopmentAuthIdentity({
 }: EnsureDevelopmentIdentityOptions): Promise<DevelopmentIdentity> {
   const supabase = createSupabaseServiceRoleClient();
   const email = explicitEmail ?? process.env[envKey] ?? fallbackEmail;
-
-  const { data: usersData, error: listUsersError } =
-    await supabase.auth.admin.listUsers({
-      page: 1,
-      perPage: 200,
-    });
-
-  if (listUsersError) {
-    throw new Error(listUsersError.message);
-  }
-
-  const existingUser = usersData.users.find((user) => user.email === email);
+  const existingUser = await findAuthUserByEmail(email);
 
   if (existingUser) {
     return {
@@ -45,9 +34,22 @@ export async function ensureDevelopmentAuthIdentity({
       email_confirm: true,
     });
 
-  if (createUserError || !createdUserData.user) {
+  if (createUserError) {
+    const duplicateUser = await findAuthUserByEmail(email);
+
+    if (duplicateUser) {
+      return {
+        profileId: duplicateUser.id,
+        email,
+      };
+    }
+
+    throw new Error(createUserError.message);
+  }
+
+  if (!createdUserData.user) {
     throw new Error(
-      createUserError?.message ?? "Failed to create development auth user.",
+      "Failed to create development auth user.",
     );
   }
 
@@ -55,4 +57,34 @@ export async function ensureDevelopmentAuthIdentity({
     profileId: createdUserData.user.id,
     email,
   };
+
+  async function findAuthUserByEmail(targetEmail: string) {
+    const perPage = 200;
+
+    for (let page = 1; page <= 10; page += 1) {
+      const { data: usersData, error: listUsersError } =
+        await supabase.auth.admin.listUsers({
+          page,
+          perPage,
+        });
+
+      if (listUsersError) {
+        throw new Error(listUsersError.message);
+      }
+
+      const matchedUser = usersData.users.find(
+        (user) => user.email === targetEmail,
+      );
+
+      if (matchedUser) {
+        return matchedUser;
+      }
+
+      if (usersData.users.length < perPage) {
+        break;
+      }
+    }
+
+    return null;
+  }
 }
