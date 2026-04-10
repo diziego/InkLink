@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { requireRole } from "@/lib/auth/helpers";
 import { AppHeader } from "@/components/app-header";
-import { Badge } from "@/components/ui/badge";
+import { Badge, StatusBadge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { FieldMetric } from "@/components/ui/field-metric";
 import { MockNotice } from "@/components/ui/mock-notice";
@@ -351,7 +351,7 @@ function ProviderInventoryForm({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <button
           type="submit"
-          className="inline-flex h-11 items-center justify-center rounded-md bg-zinc-950 px-5 text-sm font-semibold text-white transition hover:bg-zinc-800"
+          className="inline-flex h-11 items-center justify-center rounded-md bg-indigo-950 px-5 text-sm font-semibold text-white transition hover:bg-indigo-900"
         >
           Save inventory rows
         </button>
@@ -587,7 +587,7 @@ function ProviderOnboardingForm({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <button
           type="submit"
-          className="inline-flex h-11 items-center justify-center rounded-md bg-zinc-950 px-5 text-sm font-semibold text-white transition hover:bg-zinc-800"
+          className="inline-flex h-11 items-center justify-center rounded-md bg-indigo-950 px-5 text-sm font-semibold text-white transition hover:bg-indigo-900"
         >
           Save provider onboarding
         </button>
@@ -748,7 +748,7 @@ function IncomingOrders({
                 <input type="hidden" name="assignmentId" value={assignment.id} />
                 <button
                   type="submit"
-                  className="inline-flex h-9 items-center justify-center rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white transition hover:bg-zinc-800"
+                  className="inline-flex h-9 items-center justify-center rounded-md bg-indigo-950 px-4 text-sm font-semibold text-white transition hover:bg-indigo-900"
                 >
                   Accept
                 </button>
@@ -817,15 +817,13 @@ function AcceptedOrders({ assignments }: { assignments: ProviderAssignment[] }) 
                 />
               </div>
               <div className="flex shrink-0 flex-col items-end gap-2">
-                <span className="inline-flex items-center rounded-md bg-zinc-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-zinc-600">
-                  {statusLabel}
-                </span>
+                <StatusBadge status={assignment.orderStatus} />
                 {nextLabel ? (
                   <form action={advanceOrderStatusAction}>
                     <input type="hidden" name="merchantOrderId" value={assignment.merchantOrderId} />
                     <button
                       type="submit"
-                      className="inline-flex h-9 items-center justify-center rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white transition hover:bg-zinc-800"
+                      className="inline-flex h-9 items-center justify-center rounded-md bg-indigo-950 px-4 text-sm font-semibold text-white transition hover:bg-indigo-900"
                     >
                       {nextLabel}
                     </button>

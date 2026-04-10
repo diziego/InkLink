@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { requireRole } from "@/lib/auth/helpers";
 import { hasSupabaseBrowserEnv, hasSupabaseServiceRoleEnv } from "@/lib/supabase";
 import { AppHeader } from "@/components/app-header";
-import { Badge } from "@/components/ui/badge";
+import { Badge, StatusBadge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { MockNotice } from "@/components/ui/mock-notice";
 import { SectionHeading } from "@/components/ui/section-heading";
@@ -460,7 +460,7 @@ function OrderEntryForm({
 
       <button
         type="submit"
-        className="mt-6 h-11 rounded-md bg-zinc-950 px-5 text-sm font-semibold text-white transition hover:bg-zinc-800"
+        className="mt-6 h-11 rounded-md bg-indigo-950 px-5 text-sm font-semibold text-white transition hover:bg-indigo-900"
       >
         Save order &amp; route
       </button>
@@ -536,9 +536,7 @@ function OrderHistory({
                   year: "numeric",
                 })}
               </span>
-              <span className="rounded-sm bg-zinc-800 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-zinc-300">
-                {order.status.replace(/_/g, " ")}
-              </span>
+              <StatusBadge status={order.status} />
             </div>
           </Link>
         );

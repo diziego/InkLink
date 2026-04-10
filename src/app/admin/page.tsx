@@ -433,7 +433,7 @@ function AdminReviewForm({ item }: { item: AdminProviderReviewItem }) {
       </label>
       <button
         type="submit"
-        className="inline-flex h-11 items-center justify-center rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white transition hover:bg-zinc-800"
+        className="inline-flex h-11 items-center justify-center rounded-md bg-indigo-950 px-4 text-sm font-semibold text-white transition hover:bg-indigo-900"
       >
         Save review
       </button>
@@ -537,7 +537,7 @@ function QualityMetricsSeedForm({
         </div>
         <button
           type="submit"
-          className="mt-3 inline-flex h-10 items-center justify-center rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white transition hover:bg-zinc-800"
+          className="mt-3 inline-flex h-10 items-center justify-center rounded-md bg-indigo-950 px-4 text-sm font-semibold text-white transition hover:bg-indigo-900"
         >
           Save quality metrics
         </button>
