@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { requireRole } from "@/lib/auth/helpers";
+import { hasSupabaseBrowserEnv, hasSupabaseServiceRoleEnv } from "@/lib/supabase";
 import { AppHeader } from "@/components/app-header";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -14,6 +15,12 @@ import {
   recommendLiveProvidersForOrder,
 } from "@/lib/merchant/recommendations";
 import {
+  loadMerchantOrderById,
+  loadMerchantOrderHistory,
+  type MerchantOrderSummary,
+} from "@/lib/merchant/orders";
+import { submitMerchantOrderAction } from "@/actions/merchant-orders";
+import {
   type ProviderRecommendation,
   type RoutingFactor,
 } from "@/lib/routing";
@@ -24,9 +31,9 @@ import type {
 } from "@/types";
 
 export const metadata: Metadata = {
-  title: "Merchant demo | InkLink",
+  title: "Merchant workspace | InkLink",
   description:
-    "Create a mocked DTG order and view transparent local provider recommendations using live verified provider data in InkLink.",
+    "Create a DTG order and view transparent local provider recommendations using live verified provider data in InkLink.",
 };
 
 type MerchantPageProps = {
@@ -58,6 +65,22 @@ const garmentTypeOptions = [
   { value: "tank", label: "Tank" },
   { value: "tote", label: "Tote" },
 ] satisfies { value: GarmentType; label: string }[];
+
+const garmentTypeLabels: Record<GarmentType, string> = {
+  t_shirt: "T-shirt",
+  long_sleeve: "Long sleeve",
+  hoodie: "Hoodie",
+  crewneck: "Crewneck",
+  tank: "Tank",
+  tote: "Tote",
+};
+
+const fulfillmentGoalLabels: Record<FulfillmentGoal, string> = {
+  local_first: "Local first",
+  fastest_turnaround: "Fastest turnaround",
+  lowest_cost: "Lowest cost",
+  premium_blank: "Premium blank",
+};
 
 const factorLabels = {
   printMethodCompatibility: "Print fit",
@@ -129,10 +152,26 @@ const defaultMerchant = mockMerchants.find(
 );
 
 export default async function MerchantPage({ searchParams }: MerchantPageProps) {
-  await requireRole("merchant");
+  const user = await requireRole("merchant");
   const resolvedSearchParams = searchParams ? await searchParams : {};
-  const formValues = getOrderFormValues(resolvedSearchParams);
-  const order = buildMockOrder(formValues);
+
+  const supabaseReady =
+    hasSupabaseBrowserEnv() && hasSupabaseServiceRoleEnv();
+
+  // Attempt to load a persisted order when orderId is present
+  const orderId = getStringParam(resolvedSearchParams.orderId, "");
+  let savedOrder: MerchantOrder | null = null;
+  if (orderId && supabaseReady) {
+    savedOrder = await loadMerchantOrderById(orderId, user.id);
+  }
+
+  // Build form values from the persisted order or URL params
+  const formValues = savedOrder
+    ? orderToFormValues(savedOrder)
+    : getOrderFormValues(resolvedSearchParams);
+
+  const order = savedOrder ?? buildMockOrder(formValues);
+
   const recommendationData = await recommendLiveProvidersForOrder(order);
   const providerData = recommendationData.providerData;
   const blankBrandOptions = Array.from(
@@ -145,6 +184,12 @@ export default async function MerchantPage({ searchParams }: MerchantPageProps) 
   const topRecommendation = recommendations[0];
   const hasVerifiedProviders = providerData.providers.length > 0;
 
+  // Load order history when Supabase is available
+  let orderHistory: MerchantOrderSummary[] = [];
+  if (supabaseReady) {
+    orderHistory = await loadMerchantOrderHistory(user.id);
+  }
+
   return (
     <main className="min-h-screen bg-zinc-950 px-6 py-8 text-white sm:px-10 lg:px-16">
       <div className="mx-auto max-w-6xl">
@@ -155,13 +200,14 @@ export default async function MerchantPage({ searchParams }: MerchantPageProps) 
             <SectionHeading
               eyebrow="Merchant workspace"
               title="Create a DTG order and compare local providers."
-              description="This screen keeps mocked order inputs but now routes against live verified provider records from Supabase through the existing deterministic routing engine."
+              description="Submit the form to save a real order to Supabase, then see live provider recommendations from the deterministic routing engine."
               theme="dark"
             />
             <div className="mt-8">
               <MerchantNotice
                 persistenceMode={providerData.persistenceMode}
                 hasVerifiedProviders={hasVerifiedProviders}
+                isSavedOrder={savedOrder !== null}
               />
             </div>
           </div>
@@ -187,8 +233,9 @@ export default async function MerchantPage({ searchParams }: MerchantPageProps) 
               </h2>
             </div>
             <p className="text-sm text-zinc-400">
-              Merchant: {defaultMerchant?.businessName ?? "Mock merchant"} - Print
-              method: DTG
+              {savedOrder
+                ? `Saved order · ${formValues.garmentType.replace("_", " ")} · DTG`
+                : `Merchant: ${defaultMerchant?.businessName ?? "Mock merchant"} · Print method: DTG`}
             </p>
           </div>
 
@@ -213,6 +260,18 @@ export default async function MerchantPage({ searchParams }: MerchantPageProps) 
             />
           )}
         </section>
+
+        {orderHistory.length > 0 ? (
+          <section className="border-t border-white/10 py-16">
+            <div className="mb-6">
+              <p className="text-sm font-medium uppercase tracking-[0.2em] text-zinc-400">
+                Your orders
+              </p>
+              <h2 className="mt-2 text-3xl font-semibold">Order history</h2>
+            </div>
+            <OrderHistory orders={orderHistory} currentOrderId={orderId} />
+          </section>
+        ) : null}
       </div>
     </main>
   );
@@ -221,16 +280,18 @@ export default async function MerchantPage({ searchParams }: MerchantPageProps) 
 function MerchantNotice({
   persistenceMode,
   hasVerifiedProviders,
+  isSavedOrder,
 }: {
   persistenceMode: "unconfigured" | "supabase";
   hasVerifiedProviders: boolean;
+  isSavedOrder: boolean;
 }) {
   if (persistenceMode === "unconfigured") {
     return (
       <MockNotice tone="dark">
-        Supabase is not configured in this environment yet. The merchant form
-        still builds a temporary order preview, but live provider matching is
-        unavailable until the Supabase environment variables are set.
+        Supabase is not configured. Orders will not be saved and live provider
+        matching is unavailable until the Supabase environment variables are
+        set.
       </MockNotice>
     );
   }
@@ -238,19 +299,28 @@ function MerchantNotice({
   if (!hasVerifiedProviders) {
     return (
       <MockNotice tone="dark">
-        Live merchant mode is active, but there are no verified providers in
-        Supabase yet. Approve a provider in `/admin` to populate this matching
-        view.
+        Live merchant mode is active, but there are no verified providers yet.
+        Approve a provider in `/admin` to populate this matching view. Orders
+        you submit will still be saved.
+      </MockNotice>
+    );
+  }
+
+  if (isSavedOrder) {
+    return (
+      <MockNotice tone="dark">
+        Showing a saved order from Supabase. Recommendations use live verified
+        provider records. Shipping, distance, and blank-fit calculations remain
+        mocked inside the routing engine.
       </MockNotice>
     );
   }
 
   return (
     <MockNotice tone="dark">
-      Merchant order inputs remain mocked and URL-driven, but provider
-      recommendations now use live verified provider records from Supabase.
-      Shipping, distance, and blank-fit calculations remain mocked inside the
-      routing engine.
+      Submit the form to save an order to Supabase. Recommendations use live
+      verified provider records. Shipping, distance, and blank-fit calculations
+      remain mocked inside the routing engine.
     </MockNotice>
   );
 }
@@ -266,19 +336,19 @@ function OrderEntryForm({
 }) {
   return (
     <form
-      action="/merchant"
+      action={submitMerchantOrderAction}
       className="rounded-md border border-white/15 bg-white p-6 text-zinc-950 shadow-sm"
     >
       <div className="mb-5">
         <p className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-500">
-          Mock order entry
+          Order entry
         </p>
         <h2 className="mt-2 text-2xl font-semibold">
-          Route a DTG test order
+          Route a DTG order
         </h2>
         <p className="mt-2 text-sm leading-6 text-zinc-600">
-          Values are not saved. Submitting updates the URL and reruns routing
-          against the current verified provider pool.
+          Submitting saves the order to Supabase and reruns routing against the
+          current verified provider pool.
         </p>
       </div>
 
@@ -392,7 +462,7 @@ function OrderEntryForm({
         type="submit"
         className="mt-6 h-11 rounded-md bg-zinc-950 px-5 text-sm font-semibold text-white transition hover:bg-zinc-800"
       >
-        Update recommendations
+        Save order &amp; route
       </button>
     </form>
   );
@@ -405,7 +475,7 @@ function DemoScenarioSwitcher() {
         <p className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-400">
           Demo presets
         </p>
-        <p className="text-sm text-zinc-300">Mocked URL scenarios</p>
+        <p className="text-sm text-zinc-300">Quick-fill scenarios</p>
       </div>
       <div className="mt-4 grid gap-2 sm:grid-cols-3">
         {demoScenarios.map((scenario) => (
@@ -419,10 +489,61 @@ function DemoScenarioSwitcher() {
         ))}
       </div>
       <p className="mt-3 text-sm leading-6 text-zinc-300">
-        Presets only change mocked order values. The form below still drives
-        the recommendation results.
+        Presets pre-fill the form. Submit to save as a real order.
       </p>
     </Card>
+  );
+}
+
+function OrderHistory({
+  orders,
+  currentOrderId,
+}: {
+  orders: MerchantOrderSummary[];
+  currentOrderId: string;
+}) {
+  return (
+    <div className="grid gap-3">
+      {orders.map((order) => {
+        const isCurrent = order.id === currentOrderId;
+        return (
+          <Link
+            key={order.id}
+            href={`/merchant?orderId=${order.id}`}
+            className={`flex items-center justify-between rounded-md border px-4 py-3 text-sm transition ${
+              isCurrent
+                ? "border-white/40 bg-white/10 text-white"
+                : "border-white/15 bg-white/5 text-zinc-300 hover:border-white/30 hover:bg-white/10 hover:text-white"
+            }`}
+          >
+            <div className="flex flex-wrap items-center gap-3">
+              {isCurrent ? (
+                <Badge>Viewing</Badge>
+              ) : null}
+              <span className="font-semibold">
+                {garmentTypeLabels[order.garmentType]} · {order.quantity} units
+              </span>
+              <span className="text-zinc-400">
+                {fulfillmentGoalLabels[order.fulfillmentGoal]}
+              </span>
+              <span className="text-zinc-500">ZIP {order.fulfillmentZip}</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-zinc-500">
+                {new Date(order.createdAt).toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })}
+              </span>
+              <span className="rounded-sm bg-zinc-800 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-zinc-300">
+                {order.status.replace(/_/g, " ")}
+              </span>
+            </div>
+          </Link>
+        );
+      })}
+    </div>
   );
 }
 
@@ -667,6 +788,19 @@ function MiniScore({
       </p>
     </div>
   );
+}
+
+function orderToFormValues(order: MerchantOrder): OrderFormValues {
+  const item = order.items[0];
+  return {
+    fulfillmentZip: order.fulfillmentZip,
+    fulfillmentGoal: order.fulfillmentGoal,
+    localPickupPreferred: order.localPickupPreferred,
+    garmentType: item?.garmentType ?? "t_shirt",
+    quantity: item?.quantity ?? defaultItem.quantity,
+    preferredBlankBrand: item?.preferredBlankBrand ?? "",
+    preferredBlankStyle: item?.preferredBlankStyle ?? "",
+  };
 }
 
 function getOrderFormValues(
