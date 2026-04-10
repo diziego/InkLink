@@ -1,16 +1,9 @@
 import { mockBlankInventory } from "@/lib/mock-data";
 import {
   createSupabaseServiceRoleClient,
-  ensureDevelopmentAuthIdentity,
   hasSupabaseBrowserEnv,
   hasSupabaseServiceRoleEnv,
 } from "@/lib/supabase";
-import {
-  getDefaultDevProviderKey,
-  getDevProviderEmail,
-  resolveDevProviderKey,
-  type DevProviderKey,
-} from "./dev-providers";
 import type { Database } from "@/types";
 
 const fallbackProviderId = "provider-echo-park-print-works";
@@ -53,12 +46,11 @@ export type ProviderInventoryFormRow = {
 export type ProviderInventoryData = {
   persistenceMode: "mock" | "supabase";
   hasProviderProfile: boolean;
-  developmentProviderEmail?: string;
   rows: ProviderInventoryFormRow[];
 };
 
 export async function loadProviderInventoryData(
-  devProviderKey: DevProviderKey = getDefaultDevProviderKey(),
+  profileId: string,
 ): Promise<ProviderInventoryData> {
   if (!hasSupabaseBrowserEnv() || !hasSupabaseServiceRoleEnv()) {
     return {
@@ -82,16 +74,11 @@ export async function loadProviderInventoryData(
     };
   }
 
-  const identity = await ensureDevelopmentAuthIdentity({
-    envKey: "DEV_PROVIDER_EMAIL",
-    explicitEmail: getDevProviderEmail(devProviderKey),
-    fallbackEmail: getDevProviderEmail(devProviderKey),
-  });
   const supabase = createSupabaseServiceRoleClient();
   const providerProfileResponse = await supabase
     .from("provider_profiles")
     .select("*")
-    .eq("profile_id", identity.profileId)
+    .eq("profile_id", profileId)
     .maybeSingle();
 
   if (providerProfileResponse.error) {
@@ -105,7 +92,6 @@ export async function loadProviderInventoryData(
     return {
       persistenceMode: "supabase",
       hasProviderProfile: false,
-      developmentProviderEmail: identity.email,
       rows: padInventoryRows([]),
     };
   }
@@ -137,23 +123,16 @@ export async function loadProviderInventoryData(
   return {
     persistenceMode: "supabase",
     hasProviderProfile: true,
-    developmentProviderEmail: identity.email,
     rows: padInventoryRows(rows),
   };
 }
 
-export async function saveProviderInventoryData(formData: FormData) {
-  const devProviderKey = getDevProviderKeyFromFormData(formData);
-  const identity = await ensureDevelopmentAuthIdentity({
-    envKey: "DEV_PROVIDER_EMAIL",
-    explicitEmail: getDevProviderEmail(devProviderKey),
-    fallbackEmail: getDevProviderEmail(devProviderKey),
-  });
+export async function saveProviderInventoryData(formData: FormData, profileId: string) {
   const supabase = createSupabaseServiceRoleClient();
   const providerProfileResponse = await supabase
     .from("provider_profiles")
     .select("*")
-    .eq("profile_id", identity.profileId)
+    .eq("profile_id", profileId)
     .maybeSingle();
 
   if (providerProfileResponse.error) {
@@ -306,10 +285,3 @@ function parseInteger(value: string) {
   return Number.isNaN(parsedValue) ? 0 : parsedValue;
 }
 
-function getDevProviderKeyFromFormData(formData: FormData): DevProviderKey {
-  const value = formData.get("devProviderKey");
-
-  return resolveDevProviderKey(
-    typeof value === "string" ? value : getDefaultDevProviderKey(),
-  );
-}

@@ -1,6 +1,5 @@
 import {
   createSupabaseServiceRoleClient,
-  ensureDevelopmentAuthIdentity,
   hasSupabaseBrowserEnv,
   hasSupabaseServiceRoleEnv,
 } from "@/lib/supabase";
@@ -19,8 +18,6 @@ type AdminProviderReviewRow =
   Database["public"]["Tables"]["admin_provider_reviews"]["Row"];
 type AdminProviderReviewInsert =
   Database["public"]["Tables"]["admin_provider_reviews"]["Insert"];
-type ProfileInsert = Database["public"]["Tables"]["profiles"]["Insert"];
-type UserRoleInsert = Database["public"]["Tables"]["user_roles"]["Insert"];
 type ReviewDecision = Database["public"]["Enums"]["review_decision"];
 type ProviderTier = Database["public"]["Enums"]["provider_tier"];
 type VerificationStatus = Database["public"]["Enums"]["verification_status"];
@@ -42,7 +39,6 @@ export type AdminReviewData = {
   reviewQueueCount: number;
   verifiedCount: number;
   openCapacityUnits: number;
-  developmentAdminEmail?: string;
 };
 
 export async function loadAdminReviewData(): Promise<AdminReviewData> {
@@ -64,10 +60,7 @@ export async function loadAdminReviewData(): Promise<AdminReviewData> {
     (providerProfilesResponse.data as ProviderProfileRow[] | null) ?? [];
 
   if (providerProfiles.length === 0) {
-    return getEmptyAdminReviewData(
-      "supabase",
-      process.env.DEV_ADMIN_EMAIL ?? "admin-demo@inklink.local",
-    );
+    return getEmptyAdminReviewData("supabase");
   }
 
   const providerProfileIds = providerProfiles.map((provider) => provider.id);
@@ -171,12 +164,13 @@ export async function loadAdminReviewData(): Promise<AdminReviewData> {
     reviewQueueCount: queueItems.length,
     verifiedCount: verifiedItems.length,
     openCapacityUnits,
-    developmentAdminEmail:
-      process.env.DEV_ADMIN_EMAIL ?? "admin-demo@inklink.local",
   };
 }
 
-export async function saveAdminProviderReview(formData: FormData) {
+export async function saveAdminProviderReview(
+  formData: FormData,
+  reviewerProfileId: string,
+) {
   const providerProfileId = getRequiredString(formData, "providerProfileId");
   const decision = getReviewDecision(formData, "decision");
   const reviewNotes = getOptionalString(formData, "reviewNotes");
@@ -184,42 +178,11 @@ export async function saveAdminProviderReview(formData: FormData) {
   const verificationStatusAfterReview =
     mapDecisionToVerificationStatus(decision);
 
-  const identity = await ensureDevelopmentAuthIdentity({
-    envKey: "DEV_ADMIN_EMAIL",
-    fallbackEmail: "admin-demo@inklink.local",
-  });
   const supabase = createSupabaseServiceRoleClient();
-
-  const profileRecord: ProfileInsert = {
-    id: identity.profileId,
-    display_name: "InkLink Admin Reviewer",
-    email: identity.email,
-  };
-
-  const profileUpsertResponse = await supabase
-    .from("profiles")
-    .upsert(profileRecord as never, { onConflict: "id" });
-
-  if (profileUpsertResponse.error) {
-    throw new Error(profileUpsertResponse.error.message);
-  }
-
-  const userRoleRecord: UserRoleInsert = {
-    profile_id: identity.profileId,
-    role: "admin",
-  };
-
-  const userRoleUpsertResponse = await supabase
-    .from("user_roles")
-    .upsert(userRoleRecord as never, { onConflict: "profile_id,role" });
-
-  if (userRoleUpsertResponse.error) {
-    throw new Error(userRoleUpsertResponse.error.message);
-  }
 
   const reviewRecord: AdminProviderReviewInsert = {
     provider_profile_id: providerProfileId,
-    reviewer_profile_id: identity.profileId,
+    reviewer_profile_id: reviewerProfileId,
     decision,
     tier_after_review: tierAfterReview,
     verification_status_after_review: verificationStatusAfterReview,
@@ -261,7 +224,6 @@ export function getProviderTierOptions(): ProviderTier[] {
 
 function getEmptyAdminReviewData(
   persistenceMode: "unconfigured" | "supabase",
-  developmentAdminEmail?: string,
 ): AdminReviewData {
   return {
     persistenceMode,
@@ -272,7 +234,6 @@ function getEmptyAdminReviewData(
     reviewQueueCount: 0,
     verifiedCount: 0,
     openCapacityUnits: 0,
-    developmentAdminEmail,
   };
 }
 

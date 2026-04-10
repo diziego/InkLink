@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { saveProviderQualityMetrics } from "@/lib/admin/quality-metrics";
+import { requireRole } from "@/lib/auth/helpers";
 import {
   hasSupabaseBrowserEnv,
   hasSupabaseServiceRoleEnv,
@@ -13,6 +14,7 @@ export async function saveProviderQualityMetricsAction(formData: FormData) {
     redirect("/admin?source=unconfigured");
   }
 
+  await requireRole("admin");
   await saveProviderQualityMetrics(formData);
   revalidatePath("/admin");
   revalidatePath("/merchant");

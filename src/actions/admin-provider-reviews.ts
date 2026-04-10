@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { saveAdminProviderReview } from "@/lib/admin/reviews";
+import { requireRole } from "@/lib/auth/helpers";
 import {
   hasSupabaseBrowserEnv,
   hasSupabaseServiceRoleEnv,
@@ -13,7 +14,8 @@ export async function saveAdminProviderReviewAction(formData: FormData) {
     redirect("/admin?source=unconfigured");
   }
 
-  await saveAdminProviderReview(formData);
+  const user = await requireRole("admin");
+  await saveAdminProviderReview(formData, user.id);
   revalidatePath("/admin");
   redirect("/admin?saved=1&source=supabase");
 }

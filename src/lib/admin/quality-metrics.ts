@@ -1,48 +1,12 @@
-import {
-  createSupabaseServiceRoleClient,
-  ensureDevelopmentAuthIdentity,
-} from "@/lib/supabase";
+import { createSupabaseServiceRoleClient } from "@/lib/supabase";
 import type { Database } from "@/types";
 
-type ProfileInsert = Database["public"]["Tables"]["profiles"]["Insert"];
-type UserRoleInsert = Database["public"]["Tables"]["user_roles"]["Insert"];
 type ProviderQualityMetricsInsert =
   Database["public"]["Tables"]["provider_quality_metrics"]["Insert"];
 
 export async function saveProviderQualityMetrics(formData: FormData) {
   const providerProfileId = getRequiredString(formData, "providerProfileId");
-  const identity = await ensureDevelopmentAuthIdentity({
-    envKey: "DEV_ADMIN_EMAIL",
-    fallbackEmail: "admin-demo@inklink.local",
-  });
   const supabase = createSupabaseServiceRoleClient();
-
-  const profileRecord: ProfileInsert = {
-    id: identity.profileId,
-    display_name: "InkLink Admin Reviewer",
-    email: identity.email,
-  };
-
-  const profileUpsertResponse = await supabase
-    .from("profiles")
-    .upsert(profileRecord as never, { onConflict: "id" });
-
-  if (profileUpsertResponse.error) {
-    throw new Error(profileUpsertResponse.error.message);
-  }
-
-  const userRoleRecord: UserRoleInsert = {
-    profile_id: identity.profileId,
-    role: "admin",
-  };
-
-  const userRoleUpsertResponse = await supabase
-    .from("user_roles")
-    .upsert(userRoleRecord as never, { onConflict: "profile_id,role" });
-
-  if (userRoleUpsertResponse.error) {
-    throw new Error(userRoleUpsertResponse.error.message);
-  }
 
   const qualityMetricsRecord: ProviderQualityMetricsInsert = {
     provider_profile_id: providerProfileId,

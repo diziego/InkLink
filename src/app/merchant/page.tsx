@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { requireRole } from "@/lib/auth/helpers";
 import { AppHeader } from "@/components/app-header";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -128,6 +129,7 @@ const defaultMerchant = mockMerchants.find(
 );
 
 export default async function MerchantPage({ searchParams }: MerchantPageProps) {
+  await requireRole("merchant");
   const resolvedSearchParams = searchParams ? await searchParams : {};
   const formValues = getOrderFormValues(resolvedSearchParams);
   const order = buildMockOrder(formValues);

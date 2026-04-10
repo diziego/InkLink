@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { saveProviderQualityMetricsAction } from "@/actions/admin-quality-metrics";
 import { saveAdminProviderReviewAction } from "@/actions/admin-provider-reviews";
+import { requireRole } from "@/lib/auth/helpers";
 import { AppHeader } from "@/components/app-header";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -27,6 +28,7 @@ type AdminPageProps = {
 };
 
 export default async function AdminPage({ searchParams }: AdminPageProps) {
+  await requireRole("admin");
   const resolvedSearchParams = searchParams ? await searchParams : {};
   const adminData = await loadAdminReviewData();
   const savedFlag = getStringParam(resolvedSearchParams.saved);
@@ -127,9 +129,7 @@ function AdminNotice({
   if (savedFlag === "1" && sourceFlag === "supabase") {
     return (
       <MockNotice>
-        Review decision saved to Supabase using the temporary development admin
-        fallback. Replace this with authenticated admin ownership in the next
-        phase.
+        Review decision saved to Supabase.
       </MockNotice>
     );
   }
@@ -147,11 +147,8 @@ function AdminNotice({
     return (
       <MockNotice>
         Live admin review mode. This page reads provider applications from
-        Supabase and writes review decisions using
-        {adminData.developmentAdminEmail
-          ? ` ${adminData.developmentAdminEmail}`
-          : " a development admin identity"}
-        . Merchant recommendations remain mocked for now.
+        Supabase and writes review decisions. Merchant recommendations remain
+        mocked for now.
       </MockNotice>
     );
   }

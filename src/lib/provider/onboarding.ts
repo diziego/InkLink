@@ -5,16 +5,9 @@ import {
 } from "@/lib/mock-data";
 import {
   createSupabaseServiceRoleClient,
-  ensureDevelopmentAuthIdentity,
   hasSupabaseBrowserEnv,
   hasSupabaseServiceRoleEnv,
 } from "@/lib/supabase";
-import {
-  getDefaultDevProviderKey,
-  getDevProviderEmail,
-  resolveDevProviderKey,
-  type DevProviderKey,
-} from "./dev-providers";
 import { formatValue } from "@/lib/format";
 import type { Database } from "@/types";
 
@@ -52,8 +45,6 @@ type ProviderWholesaleReadinessRow =
   Database["public"]["Tables"]["provider_wholesale_readiness"]["Row"];
 type ProviderQualityMetricsRow =
   Database["public"]["Tables"]["provider_quality_metrics"]["Row"];
-type ProfileInsert = Database["public"]["Tables"]["profiles"]["Insert"];
-type UserRoleInsert = Database["public"]["Tables"]["user_roles"]["Insert"];
 type ProviderProfileInsert =
   Database["public"]["Tables"]["provider_profiles"]["Insert"];
 type ProviderCapabilityInsert =
@@ -98,17 +89,11 @@ export type ProviderOnboardingData = {
   qualityScoreLabel: string;
   persistenceMode: "mock" | "supabase";
   hasPersistedRecord: boolean;
-  developmentProviderEmail?: string;
   lastSavedAt?: string;
 };
 
-type DevelopmentProviderIdentity = {
-  profileId: string;
-  email: string;
-};
-
 export async function loadProviderOnboardingData(
-  devProviderKey: DevProviderKey = getDefaultDevProviderKey(),
+  profileId: string,
 ): Promise<ProviderOnboardingData> {
   if (!hasSupabaseBrowserEnv() || !hasSupabaseServiceRoleEnv()) {
     return {
@@ -119,23 +104,21 @@ export async function loadProviderOnboardingData(
     };
   }
 
-  const identity = await ensureDevelopmentProviderIdentity(devProviderKey);
   const supabase = createSupabaseServiceRoleClient();
 
   const providerProfileResponse = await supabase
     .from("provider_profiles")
     .select("*")
-    .eq("profile_id", identity.profileId)
+    .eq("profile_id", profileId)
     .maybeSingle();
   const providerProfile = providerProfileResponse.data as ProviderProfileRow | null;
 
   if (!providerProfile) {
     return {
-      values: getMockFormValues(identity.email),
+      values: getMockFormValues(),
       qualityScoreLabel: `${fallbackQuality?.qualityScore ?? 0}/100`,
       persistenceMode: "supabase",
       hasPersistedRecord: false,
-      developmentProviderEmail: identity.email,
     };
   }
 
@@ -164,11 +147,10 @@ export async function loadProviderOnboardingData(
 
   if (!providerCapability || !wholesaleReadiness) {
     return {
-      values: getMockFormValues(identity.email),
+      values: getMockFormValues(),
       qualityScoreLabel: `${fallbackQuality?.qualityScore ?? 0}/100`,
       persistenceMode: "supabase",
       hasPersistedRecord: false,
-      developmentProviderEmail: identity.email,
     };
   }
 
@@ -209,7 +191,6 @@ export async function loadProviderOnboardingData(
     qualityScoreLabel: `${qualityMetrics?.quality_score ?? fallbackQuality?.qualityScore ?? 0}/100`,
     persistenceMode: "supabase",
     hasPersistedRecord: true,
-    developmentProviderEmail: identity.email,
     lastSavedAt:
       wholesaleReadiness.updated_at ?? providerCapability.updated_at ?? providerProfile.updated_at,
   };
@@ -217,33 +198,13 @@ export async function loadProviderOnboardingData(
 
 export async function saveProviderOnboardingData(
   formData: FormData,
+  profileId: string,
 ): Promise<{ success: true }> {
-  const identity = await ensureDevelopmentProviderIdentity(
-    getDevProviderKeyFromFormData(formData),
-  );
-  const values = parseProviderOnboardingFormData(formData, identity.email);
+  const values = parseProviderOnboardingFormData(formData);
   const supabase = createSupabaseServiceRoleClient();
-  const profileRecord: ProfileInsert = {
-    id: identity.profileId,
-    display_name: values.contactName,
-    email: identity.email,
-  };
-
-  await supabase
-    .from("profiles")
-    .upsert(profileRecord as never, { onConflict: "id" });
-
-  const userRoleRecord: UserRoleInsert = {
-    profile_id: identity.profileId,
-    role: "provider",
-  };
-
-  await supabase
-    .from("user_roles")
-    .upsert(userRoleRecord as never, { onConflict: "profile_id,role" });
 
   const providerProfileRecord: ProviderProfileInsert = {
-    profile_id: identity.profileId,
+    profile_id: profileId,
     business_name: values.businessName,
     contact_name: values.contactName,
     city: values.city,
@@ -329,33 +290,13 @@ export function getGarmentTypeOptionLabel(value: GarmentType) {
   return formatValue(value);
 }
 
-async function ensureDevelopmentProviderIdentity(
-  devProviderKey: DevProviderKey,
-): Promise<DevelopmentProviderIdentity> {
-  return ensureDevelopmentAuthIdentity({
-    envKey: "DEV_PROVIDER_EMAIL",
-    explicitEmail: getDevProviderEmail(devProviderKey),
-    fallbackEmail: getDevProviderEmail(devProviderKey),
-  });
-}
-
-function getDevProviderKeyFromFormData(formData: FormData): DevProviderKey {
-  const value = formData.get("devProviderKey");
-
-  return resolveDevProviderKey(
-    typeof value === "string" ? value : getDefaultDevProviderKey(),
-  );
-}
-
-function getMockFormValues(
-  developmentProviderEmail = fallbackProvider.businessEmail,
-): ProviderOnboardingFormValues {
+function getMockFormValues(): ProviderOnboardingFormValues {
   return {
     businessName: fallbackProvider.businessName,
     legalBusinessName: fallbackProvider.legalBusinessName,
     dbaName: fallbackProvider.dbaName ?? "",
     contactName: fallbackProvider.contactName,
-    businessEmail: developmentProviderEmail,
+    businessEmail: fallbackProvider.businessEmail,
     phone: fallbackProvider.phone,
     streetAddress: fallbackProvider.streetAddress,
     city: fallbackProvider.city,
@@ -387,7 +328,6 @@ function getMockFormValues(
 
 function parseProviderOnboardingFormData(
   formData: FormData,
-  developmentProviderEmail: string,
 ): ProviderOnboardingFormValues {
   return {
     businessName: getString(formData, "businessName", fallbackProvider.businessName),
@@ -401,7 +341,7 @@ function parseProviderOnboardingFormData(
     businessEmail: getString(
       formData,
       "businessEmail",
-      developmentProviderEmail,
+      fallbackProvider.businessEmail,
     ),
     phone: getString(formData, "phone", fallbackProvider.phone),
     streetAddress: getString(
