@@ -24,7 +24,7 @@ const providerBenefits = [
 
 const proofPoints = [
   { label: "Routing", value: "Transparent" },
-  { label: "MVP focus", value: "DTG first" },
+  { label: "Print method", value: "DTG first" },
   { label: "Market", value: "Southern California" },
 ];
 
@@ -51,16 +51,16 @@ export default function Home() {
             </p>
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
               <Link
-                href="/merchant"
+                href="/login"
                 className="inline-flex h-12 items-center justify-center rounded-md bg-white px-5 text-sm font-semibold text-zinc-950 transition hover:bg-zinc-200"
               >
-                Start as a merchant
+                Get started
               </Link>
               <Link
-                href="/provider"
+                href="/merchant"
                 className="inline-flex h-12 items-center justify-center rounded-md border border-white/30 px-5 text-sm font-semibold text-white transition hover:border-white hover:bg-white/10"
               >
-                Join as a provider
+                See how it works
               </Link>
             </div>
             <dl className="mt-10 grid max-w-2xl gap-3 sm:grid-cols-3">
@@ -132,10 +132,10 @@ export default function Home() {
               that favor nearby production when it makes sense.
             </h2>
             <p className="text-base leading-7 text-zinc-300">
-              InkLink starts with DTG and leaves room for DTF, screen print,
-              embroidery, heat transfer, local courier options, and split
-              routing later. The MVP stays focused on a credible marketplace
-              loop first.
+              InkLink starts with DTG and is designed to expand into DTF,
+              screen print, embroidery, heat transfer, local courier options,
+              and split routing. The platform is built to grow alongside your
+              fulfillment needs.
             </p>
           </div>
         </div>
@@ -156,6 +156,9 @@ export default function Home() {
             </Link>
             <Link href="/admin" className="transition hover:text-white">
               Admin
+            </Link>
+            <Link href="/login" className="transition hover:text-white">
+              Sign in
             </Link>
           </div>
         </div>

@@ -18,7 +18,7 @@ import {
 import { formatValue } from "@/lib/format";
 
 export const metadata: Metadata = {
-  title: "Admin demo | InkLink",
+  title: "Admin | InkLink",
   description:
     "Review live provider applications, capabilities, wholesale readiness, and admin decisions for InkLink.",
 };
@@ -44,7 +44,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
             <SectionHeading
               eyebrow="Admin verification"
               title="Review provider readiness before routing merchant work."
-              description="This admin route now reads live provider application records from Supabase and records review outcomes while merchant routing remains mocked."
+              description="Review provider applications, set verification status, and manage the pool of providers eligible to receive matched merchant orders."
             />
             <div className="mt-8">
               <AdminNotice
@@ -146,9 +146,9 @@ function AdminNotice({
   if (adminData.persistenceMode === "supabase") {
     return (
       <MockNotice>
-        Live admin review mode. This page reads provider applications from
-        Supabase and writes review decisions. Merchant recommendations remain
-        mocked for now.
+        Provider applications load live. Review decisions update verification
+        status and tier immediately, which affects provider scoring on merchant
+        order recommendations.
       </MockNotice>
     );
   }
@@ -184,9 +184,9 @@ function AdminSummary({ adminData }: { adminData: AdminReviewData }) {
         />
       </div>
       <p className="mt-5 text-sm leading-6 text-zinc-600">
-        This page now reviews live provider application data. Approved reviews
-        update provider verification status and tier so the verified pool stays
-        in sync with admin decisions.
+        Approved providers enter the verified routing pool and become eligible
+        for matched merchant orders. Verification status and tier update
+        immediately when a review is saved.
       </p>
     </Card>
   );

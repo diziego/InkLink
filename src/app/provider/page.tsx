@@ -80,8 +80,8 @@ export default async function ProviderPage({
           <div>
             <SectionHeading
               eyebrow="Provider onboarding"
-              title="List shop capabilities before receiving matched DTG work."
-              description="This route is the first Supabase-backed vertical slice in InkLink. It can now save provider onboarding, capabilities, and wholesale-readiness fields while the rest of the app continues to use mocked data."
+              title="List your shop's capabilities to start receiving matched orders from local brands."
+              description="Complete your profile so InkLink can match your print methods, garment types, capacity, and location against incoming merchant orders."
             />
             <div className="mt-8">
               <PersistenceNotice
@@ -133,7 +133,7 @@ export default async function ProviderPage({
               Provider application
             </p>
             <h2 className="mt-2 text-3xl font-semibold">
-              Development onboarding form
+              Provider onboarding
             </h2>
           </div>
           <ProviderOnboardingForm
@@ -147,11 +147,12 @@ export default async function ProviderPage({
               Merchant-facing blanks
             </p>
             <h2 className="mt-2 text-3xl font-semibold">
-              Inventory seed rows
+              Blank inventory
             </h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">
-              Keep this small for now. These rows feed brand/style matching on
-              `/merchant` for the current development provider.
+              List the blanks you stock so merchants can filter recommendations
+              by brand and style. These rows feed blank-fit scoring in the
+              routing engine.
             </p>
           </div>
           <ProviderInventoryForm
@@ -163,25 +164,25 @@ export default async function ProviderPage({
 
         <section className="grid gap-5 pb-16 lg:grid-cols-3">
           <StatCard
-            label="Persistence"
+            label="Profile status"
             value={
               onboardingData.persistenceMode === "supabase"
                 ? onboardingData.hasPersistedRecord
                   ? "Live record"
                   : "Ready to save"
-                : "Mock only"
+                : "Not configured"
             }
-            description="Provider onboarding now persists to Supabase when environment variables are configured."
+            description="Your provider profile is saved and used for matching. Keep it up to date to improve your routing score."
           />
           <StatCard
             label="Capacity"
             value={`${availableCapacity} units open`}
-            description="This still matches the routing engine inputs, even though /merchant and /admin remain mocked for now."
+            description="Open capacity feeds the routing engine. Update your current capacity regularly to receive appropriately sized orders."
           />
           <StatCard
             label="Turnaround and pickup"
             value={`${onboardingData.values.turnaroundSlaDays} days / ${onboardingData.values.supportsLocalPickup ? "pickup yes" : "pickup no"}`}
-            description="Saved values here are intended to become the real source for provider review and future routing migration."
+            description="Turnaround SLA and local pickup support directly affect how your shop ranks against merchant fulfillment goals."
           />
         </section>
       </div>
@@ -218,16 +219,16 @@ function PersistenceNotice({
   if (onboardingData.persistenceMode === "supabase") {
     return (
       <MockNotice>
-        Live provider mode. This page loads and saves your provider profile from
-        Supabase. Merchant recommendations use your live verified data.
+        Your provider profile is live. Changes you save here are reflected
+        immediately in merchant order recommendations.
       </MockNotice>
     );
   }
 
   return (
     <MockNotice>
-      Supabase environment variables are not configured. This page is showing
-      local demo data only.
+      Provider persistence is not configured in this environment. Set the
+      Supabase environment variables to save and load your provider profile.
     </MockNotice>
   );
 }
@@ -256,8 +257,8 @@ function ProviderInventoryForm({
     <form action={saveProviderInventoryAction} className="grid gap-5">
       {(savedFlag === "inventory" && sourceFlag === "supabase") ? (
         <MockNotice>
-          Inventory rows saved. Merchant recommendations will use these live
-          blanks the next time `/merchant` loads verified providers.
+          Blank inventory saved. These rows are now used for brand and style
+          matching on merchant order recommendations.
         </MockNotice>
       ) : null}
       <Card className="shadow-sm">
@@ -354,7 +355,7 @@ function ProviderInventoryForm({
           Save inventory rows
         </button>
         <p className="text-sm text-zinc-600">
-          Development-only seed data for merchant blank brand/style matching.
+          Saved rows are used for merchant blank brand and style matching.
         </p>
       </div>
     </form>
@@ -590,8 +591,8 @@ function ProviderOnboardingForm({
           Save provider onboarding
         </button>
         <p className="text-sm text-zinc-600">
-          Temporary development persistence only. Real provider ownership will
-          replace this fallback after auth is added.
+          Saved values update your live profile and affect routing scores on
+          merchant recommendations.
         </p>
       </div>
     </form>

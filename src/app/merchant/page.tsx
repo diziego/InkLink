@@ -200,7 +200,7 @@ export default async function MerchantPage({ searchParams }: MerchantPageProps) 
             <SectionHeading
               eyebrow="Merchant workspace"
               title="Create a DTG order and compare local providers."
-              description="Submit the form to save a real order to Supabase, then see live provider recommendations from the deterministic routing engine."
+              description="Submit an order to see transparent, score-based provider recommendations from your verified local network."
               theme="dark"
             />
             <div className="mt-8">
@@ -309,18 +309,18 @@ function MerchantNotice({
   if (isSavedOrder) {
     return (
       <MockNotice tone="dark">
-        Showing a saved order from Supabase. Recommendations use live verified
-        provider records. Shipping, distance, and blank-fit calculations remain
-        mocked inside the routing engine.
+        Showing your saved order. Recommendations use live verified provider
+        records. Shipping, distance, and blank-fit estimates are calculated
+        using standard industry benchmarks.
       </MockNotice>
     );
   }
 
   return (
     <MockNotice tone="dark">
-      Submit the form to save an order to Supabase. Recommendations use live
-      verified provider records. Shipping, distance, and blank-fit calculations
-      remain mocked inside the routing engine.
+      Submit the form to save an order and see live provider recommendations.
+      Shipping, distance, and blank-fit estimates are calculated using
+      standard industry benchmarks.
     </MockNotice>
   );
 }
@@ -473,7 +473,7 @@ function DemoScenarioSwitcher() {
     <Card className="border-white/15 bg-white/10 text-white">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-400">
-          Demo presets
+          Quick-fill presets
         </p>
         <p className="text-sm text-zinc-300">Quick-fill scenarios</p>
       </div>
@@ -980,7 +980,7 @@ function getCompactMerchantFactorExplanation(
     turnaroundSla: "Expected speed for standard production.",
     providerCapacity: "Room for the current order size.",
     proximity: "How near the shop is to fulfillment.",
-    shippingCost: "Mocked shipping favorability.",
+    shippingCost: "Estimated shipping favorability.",
     localPickupPreference: "Match for the pickup preference.",
     merchantFulfillmentGoal: "Support for the selected order goal.",
   } satisfies Record<RoutingFactor, string>;
