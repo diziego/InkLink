@@ -46,6 +46,7 @@ export type Database = {
         | "completed"
         | "cancelled";
       review_decision: "pending" | "approved" | "rejected" | "needs_changes";
+      assignment_status: "pending" | "accepted" | "declined";
     };
     Tables: {
       profiles: {
@@ -383,6 +384,28 @@ export type Database = {
           sizes?: Json;
           color?: string;
           updated_at?: string;
+        };
+      };
+      order_assignments: {
+        Row: {
+          id: string;
+          merchant_order_id: string;
+          provider_profile_id: string;
+          status: Database["public"]["Enums"]["assignment_status"];
+          assigned_at: string;
+          responded_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          merchant_order_id: string;
+          provider_profile_id: string;
+          status?: Database["public"]["Enums"]["assignment_status"];
+          assigned_at?: string;
+          responded_at?: string | null;
+        };
+        Update: {
+          status?: Database["public"]["Enums"]["assignment_status"];
+          responded_at?: string | null;
         };
       };
       admin_provider_reviews: {

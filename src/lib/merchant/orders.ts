@@ -1,4 +1,5 @@
 import { createSupabaseServiceRoleClient } from "@/lib/supabase";
+import { recommendLiveProvidersForOrder } from "@/lib/merchant/recommendations";
 import type {
   FulfillmentGoal,
   GarmentType,
@@ -78,6 +79,63 @@ export async function saveMerchantOrder(
   }
 
   return orderRow.id;
+}
+
+/**
+ * Run routing for the saved order and insert assignments for the top 3
+ * recommended providers. Silently skips if no verified providers exist.
+ * MOCKED: routing uses mock scoring weights and proximity calculations.
+ */
+export async function assignTopProviders(
+  orderId: string,
+  input: SaveOrderInput,
+): Promise<void> {
+  // Build a minimal MerchantOrder to feed into the routing engine
+  const order: MerchantOrder = {
+    id: orderId,
+    merchantId: "",
+    status: "draft",
+    fulfillmentZip: input.fulfillmentZip,
+    fulfillmentGoal: input.fulfillmentGoal,
+    localPickupPreferred: input.localPickupPreferred,
+    neededByDate: "",
+    createdAt: new Date().toISOString(),
+    notes: "",
+    items: [
+      {
+        id: "",
+        printMethod: "dtg",
+        garmentType: input.garmentType,
+        quantity: input.quantity,
+        preferredBlankBrand: input.preferredBlankBrand || undefined,
+        preferredBlankStyle: input.preferredBlankStyle || undefined,
+        sizes: {},
+        color: "",
+      },
+    ],
+  };
+
+  const { recommendations } = await recommendLiveProvidersForOrder(order);
+  if (recommendations.length === 0) return;
+
+  const top3 = recommendations.slice(0, 3);
+  const supabase = createSupabaseServiceRoleClient();
+
+  const rows = top3.map((rec) => ({
+    merchant_order_id: orderId,
+    provider_profile_id: rec.providerId,
+    status: "pending" as const,
+  }));
+
+  // Use upsert so re-submitting the same order doesn't error on the unique constraint
+  const result = await (supabase.from("order_assignments") as any).upsert(
+    rows,
+    { onConflict: "merchant_order_id,provider_profile_id", ignoreDuplicates: true },
+  );
+
+  if (result.error) {
+    throw new Error(result.error.message);
+  }
 }
 
 export async function loadMerchantOrderById(

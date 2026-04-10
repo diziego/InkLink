@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth/helpers";
-import { saveMerchantOrder } from "@/lib/merchant/orders";
+import { assignTopProviders, saveMerchantOrder } from "@/lib/merchant/orders";
 import {
   hasSupabaseBrowserEnv,
   hasSupabaseServiceRoleEnv,
@@ -70,7 +70,7 @@ export async function submitMerchantOrderAction(formData: FormData) {
     ? 1
     : Math.max(1, Math.min(rawQuantity, 500));
 
-  const orderId = await saveMerchantOrder(user.id, {
+  const orderInput = {
     fulfillmentZip: fulfillmentZip || "00000",
     fulfillmentGoal,
     localPickupPreferred,
@@ -78,7 +78,13 @@ export async function submitMerchantOrderAction(formData: FormData) {
     quantity,
     preferredBlankBrand,
     preferredBlankStyle,
-  });
+  };
+
+  const orderId = await saveMerchantOrder(user.id, orderInput);
+
+  // Auto-assign top 3 providers from routing. Fire-and-forget style:
+  // if no providers are configured the function exits silently.
+  await assignTopProviders(orderId, orderInput);
 
   redirect(`/merchant?orderId=${orderId}`);
 }

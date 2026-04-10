@@ -7,6 +7,7 @@ import { FieldMetric } from "@/components/ui/field-metric";
 import { MockNotice } from "@/components/ui/mock-notice";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { StatCard } from "@/components/ui/stat-card";
+import { acceptAssignmentAction, declineAssignmentAction } from "@/actions/provider-orders";
 import { saveProviderInventoryAction } from "@/actions/provider-inventory";
 import { saveProviderOnboardingAction } from "@/actions/provider-onboarding";
 import {
@@ -24,6 +25,11 @@ import {
   PROVIDER_INVENTORY_STOCK_OPTIONS,
   type ProviderInventoryData,
 } from "@/lib/provider/inventory";
+import {
+  getProviderProfileId,
+  loadProviderAssignments,
+  type ProviderAssignment,
+} from "@/lib/provider/orders";
 
 export const metadata: Metadata = {
   title: "Provider demo | InkLink",
@@ -50,6 +56,13 @@ export default async function ProviderPage({
     loadProviderOnboardingData(user.id),
     loadProviderInventoryData(user.id),
   ]);
+
+  // Load incoming and accepted order assignments if a provider profile exists
+  const providerProfileId = await getProviderProfileId(user.id);
+  const { pending: pendingAssignments, accepted: acceptedAssignments } =
+    providerProfileId
+      ? await loadProviderAssignments(providerProfileId)
+      : { pending: [], accepted: [] };
   const savedFlag = getStringParam(resolvedSearchParams.saved);
   const sourceFlag = getStringParam(resolvedSearchParams.source);
 
@@ -87,6 +100,32 @@ export default async function ProviderPage({
             lastSavedAt={onboardingData.lastSavedAt}
           />
         </section>
+
+        <section className="pb-12">
+          <div className="mb-6">
+            <p className="text-sm font-medium uppercase tracking-[0.2em] text-zinc-500">
+              Order inbox
+            </p>
+            <h2 className="mt-2 text-3xl font-semibold">Incoming orders</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">
+              Orders matched to your provider profile by the routing engine.
+              Accept to claim the job and move it to production. Decline to pass.
+            </p>
+          </div>
+          <IncomingOrders assignments={pendingAssignments} hasProviderProfile={!!providerProfileId} />
+        </section>
+
+        {acceptedAssignments.length > 0 && (
+          <section className="pb-12">
+            <div className="mb-6">
+              <p className="text-sm font-medium uppercase tracking-[0.2em] text-zinc-500">
+                Accepted
+              </p>
+              <h2 className="mt-2 text-3xl font-semibold">Accepted orders</h2>
+            </div>
+            <AcceptedOrders assignments={acceptedAssignments} />
+          </section>
+        )}
 
         <section className="pb-8">
           <div className="mb-6">
@@ -646,6 +685,120 @@ function TagGroup({ title, values }: { title: string; values: string[] }) {
           <Badge key={value}>{value}</Badge>
         ))}
       </div>
+    </div>
+  );
+}
+
+function IncomingOrders({
+  assignments,
+  hasProviderProfile,
+}: {
+  assignments: ProviderAssignment[];
+  hasProviderProfile: boolean;
+}) {
+  if (!hasProviderProfile) {
+    return (
+      <Card className="shadow-sm">
+        <p className="text-sm leading-6 text-zinc-600">
+          Save your provider onboarding first. Orders will appear here once your
+          profile is live and matched by the routing engine.
+        </p>
+      </Card>
+    );
+  }
+
+  if (assignments.length === 0) {
+    return (
+      <Card className="shadow-sm">
+        <p className="text-sm leading-6 text-zinc-600">
+          No pending orders right now. New matches will appear here when a
+          merchant submits an order that fits your capabilities.
+        </p>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="grid gap-4">
+      {assignments.map((assignment) => (
+        <Card key={assignment.id} className="shadow-sm">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <FieldMetric
+                label="Garment"
+                value={assignment.garmentType.replaceAll("_", " ")}
+              />
+              <FieldMetric
+                label="Quantity"
+                value={`${assignment.quantity} units`}
+              />
+              <FieldMetric
+                label="Fulfillment ZIP"
+                value={assignment.fulfillmentZip}
+              />
+              <FieldMetric
+                label="Goal"
+                value={assignment.fulfillmentGoal.replaceAll("_", " ")}
+              />
+            </div>
+            <div className="flex shrink-0 gap-2">
+              <form action={acceptAssignmentAction}>
+                <input type="hidden" name="assignmentId" value={assignment.id} />
+                <button
+                  type="submit"
+                  className="inline-flex h-9 items-center justify-center rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white transition hover:bg-zinc-800"
+                >
+                  Accept
+                </button>
+              </form>
+              <form action={declineAssignmentAction}>
+                <input type="hidden" name="assignmentId" value={assignment.id} />
+                <button
+                  type="submit"
+                  className="inline-flex h-9 items-center justify-center rounded-md border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50"
+                >
+                  Decline
+                </button>
+              </form>
+            </div>
+          </div>
+          <p className="mt-3 text-xs text-zinc-400">
+            Assigned {formatDateTime(assignment.assignedAt)}
+          </p>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function AcceptedOrders({ assignments }: { assignments: ProviderAssignment[] }) {
+  return (
+    <div className="grid gap-4">
+      {assignments.map((assignment) => (
+        <Card key={assignment.id} className="shadow-sm">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <FieldMetric
+              label="Garment"
+              value={assignment.garmentType.replaceAll("_", " ")}
+            />
+            <FieldMetric
+              label="Quantity"
+              value={`${assignment.quantity} units`}
+            />
+            <FieldMetric
+              label="Fulfillment ZIP"
+              value={assignment.fulfillmentZip}
+            />
+            <FieldMetric
+              label="Goal"
+              value={assignment.fulfillmentGoal.replaceAll("_", " ")}
+            />
+          </div>
+          <p className="mt-3 text-xs text-zinc-400">
+            Accepted {assignment.respondedAt ? formatDateTime(assignment.respondedAt) : "—"}
+          </p>
+        </Card>
+      ))}
     </div>
   );
 }
