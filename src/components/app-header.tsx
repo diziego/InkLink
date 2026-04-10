@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { BRAND } from "@/config/brand";
+import { getCurrentUser } from "@/lib/auth/helpers";
+import { signOutAction } from "@/actions/auth";
 
 type AppHeaderProps = {
   theme?: "dark" | "light";
@@ -11,7 +13,9 @@ const navItems = [
   { href: "/admin", label: "Admin" },
 ];
 
-export function AppHeader({ theme = "light" }: AppHeaderProps) {
+export async function AppHeader({ theme = "light" }: AppHeaderProps) {
+  const user = await getCurrentUser();
+
   const isDark = theme === "dark";
   const linkClassName = isDark
     ? "text-zinc-300 hover:text-white"
@@ -34,6 +38,24 @@ export function AppHeader({ theme = "light" }: AppHeaderProps) {
             {item.label}
           </Link>
         ))}
+
+        {user ? (
+          <form action={signOutAction}>
+            <button
+              type="submit"
+              className={`transition ${linkClassName}`}
+            >
+              Sign out
+            </button>
+          </form>
+        ) : (
+          <Link
+            href="/login"
+            className="rounded-md bg-zinc-950 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-zinc-800"
+          >
+            Sign in
+          </Link>
+        )}
       </nav>
     </header>
   );
