@@ -112,6 +112,32 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
             />
           )}
         </section>
+
+        <section className="pb-16">
+          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-sm font-medium uppercase tracking-[0.2em] text-red-600">
+                Rejected providers
+              </p>
+              <h2 className="mt-2 text-3xl font-semibold">
+                Providers removed from the routing pool
+              </h2>
+            </div>
+            <Badge>{adminData.rejectedCount} rejected</Badge>
+          </div>
+          {adminData.rejectedItems.length > 0 ? (
+            <div className="grid gap-5">
+              {adminData.rejectedItems.map((item) => (
+                <RejectedProviderCard key={item.providerProfile.id} item={item} />
+              ))}
+            </div>
+          ) : (
+            <EmptyStateCard
+              title="No rejected providers"
+              description="Providers whose applications have been rejected will appear here. You can reinstate them by saving a new review decision."
+            />
+          )}
+        </section>
       </div>
     </main>
   );
@@ -168,7 +194,7 @@ function AdminSummary({ adminData }: { adminData: AdminReviewData }) {
       <p className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-500">
         Marketplace review health
       </p>
-      <div className="mt-5 grid gap-4 sm:grid-cols-2">
+      <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <SummaryMetric
           label="Total providers"
           value={`${adminData.totalProviders}`}
@@ -176,8 +202,18 @@ function AdminSummary({ adminData }: { adminData: AdminReviewData }) {
         <SummaryMetric
           label="In review queue"
           value={`${adminData.reviewQueueCount}`}
+          highlight={adminData.reviewQueueCount > 0 ? "queue" : undefined}
         />
-        <SummaryMetric label="Verified" value={`${adminData.verifiedCount}`} />
+        <SummaryMetric
+          label="Verified"
+          value={`${adminData.verifiedCount}`}
+          highlight={adminData.verifiedCount > 0 ? "verified" : undefined}
+        />
+        <SummaryMetric
+          label="Rejected"
+          value={`${adminData.rejectedCount}`}
+          highlight={adminData.rejectedCount > 0 ? "rejected" : undefined}
+        />
         <SummaryMetric
           label="Open capacity"
           value={`${adminData.openCapacityUnits} units`}
@@ -363,18 +399,11 @@ function ProviderReviewCard({ item }: { item: AdminProviderReviewItem }) {
           </dl>
           <div className="mt-4 rounded-md border border-zinc-200 bg-white p-3">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">
-              Latest review
+              Review history
             </p>
-            <p className="mt-2 text-sm leading-6 text-zinc-700">
-              {latestReview
-                ? `${formatValue(latestReview.decision)} on ${formatDateTime(latestReview.created_at)}`
-                : "No review saved yet."}
-            </p>
-            {latestReview?.review_notes ? (
-              <p className="mt-2 text-sm leading-6 text-zinc-600">
-                {latestReview.review_notes}
-              </p>
-            ) : null}
+            <div className="mt-3">
+              <ReviewHistoryTimeline allReviews={item.allReviews} />
+            </div>
           </div>
           <AdminReviewForm item={item} />
           <QualityMetricsSeedForm item={item} />
@@ -433,7 +462,7 @@ function AdminReviewForm({ item }: { item: AdminProviderReviewItem }) {
       </label>
       <button
         type="submit"
-        className="inline-flex h-11 items-center justify-center rounded-md bg-indigo-950 px-4 text-sm font-semibold text-white transition hover:bg-indigo-900"
+        className="inline-flex h-11 items-center justify-center rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white transition hover:bg-zinc-800"
       >
         Save review
       </button>
@@ -472,11 +501,9 @@ function VerifiedProviderCard({ item }: { item: AdminProviderReviewItem }) {
           value={`${qualityMetrics?.quality_score ?? 0}/100`}
         />
       </dl>
-      <p className="mt-4 text-sm leading-6 text-zinc-600">
-        {latestReview
-          ? `Last review: ${formatValue(latestReview.decision)} on ${formatDateTime(latestReview.created_at)}`
-          : "No review history yet."}
-      </p>
+      <div className="mt-4">
+        <ReviewHistoryTimeline allReviews={item.allReviews} />
+      </div>
       <div className="mt-4 border-t border-zinc-200 pt-4">
         <QualityMetricsSeedForm item={item} compact />
       </div>
@@ -537,7 +564,7 @@ function QualityMetricsSeedForm({
         </div>
         <button
           type="submit"
-          className="mt-3 inline-flex h-10 items-center justify-center rounded-md bg-indigo-950 px-4 text-sm font-semibold text-white transition hover:bg-indigo-900"
+          className="mt-3 inline-flex h-10 items-center justify-center rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white transition hover:bg-zinc-800"
         >
           Save quality metrics
         </button>
@@ -582,13 +609,154 @@ function EmptyStateCard({
   );
 }
 
-function SummaryMetric({ label, value }: { label: string; value: string }) {
+const decisionChipStyles: Record<string, string> = {
+  approved: "bg-emerald-100 text-emerald-800",
+  rejected: "bg-red-100 text-red-700",
+  needs_changes: "bg-amber-100 text-amber-800",
+  pending: "bg-zinc-100 text-zinc-600",
+};
+
+function ReviewHistoryTimeline({
+  allReviews,
+}: {
+  allReviews: AdminProviderReviewItem["allReviews"];
+}) {
+  if (allReviews.length === 0) {
+    return (
+      <p className="text-sm text-zinc-500">No review history yet.</p>
+    );
+  }
+
+  return (
+    <ol className="space-y-0">
+      {allReviews.map((review, index) => (
+        <li key={review.id} className="flex gap-3">
+          {/* Spine */}
+          <div className="flex flex-col items-center">
+            <div
+              className={`mt-0.5 h-3 w-3 shrink-0 rounded-full border-2 ${
+                index === 0
+                  ? "border-zinc-950 bg-zinc-950"
+                  : "border-zinc-300 bg-white"
+              }`}
+            />
+            {index < allReviews.length - 1 ? (
+              <div className="w-px flex-1 bg-zinc-200" />
+            ) : null}
+          </div>
+          {/* Content */}
+          <div className="pb-4 pt-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-semibold capitalize ${
+                  decisionChipStyles[review.decision] ?? decisionChipStyles.pending
+                }`}
+              >
+                {review.decision.replace(/_/g, " ")}
+              </span>
+              {index === 0 ? (
+                <span className="text-xs font-medium text-zinc-400">Latest</span>
+              ) : null}
+              <span className="text-xs text-zinc-400">
+                {formatDateTime(review.created_at)}
+              </span>
+            </div>
+            {review.review_notes ? (
+              <p className="mt-1 text-xs leading-5 text-zinc-600">
+                {review.review_notes}
+              </p>
+            ) : null}
+          </div>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function RejectedProviderCard({ item }: { item: AdminProviderReviewItem }) {
+  const { providerProfile, qualityMetrics } = item;
+
+  return (
+    <Card className="border-red-100 shadow-sm">
+      <div className="grid gap-6 lg:grid-cols-[1fr_0.75fr]">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-red-600">
+            Rejected
+          </p>
+          <h3 className="mt-2 text-2xl font-semibold">
+            {providerProfile.business_name}
+          </h3>
+          <p className="mt-1 text-sm text-zinc-600">
+            {providerProfile.city}, {providerProfile.state} {providerProfile.zip}
+          </p>
+          <dl className="mt-4 grid gap-3 sm:grid-cols-2">
+            <FieldMetric
+              label="Quality score"
+              value={`${qualityMetrics?.quality_score ?? 0}/100`}
+            />
+            <FieldMetric
+              label="SLA"
+              value={`${providerProfile.turnaround_sla_days} days`}
+            />
+          </dl>
+          {item.latestReview?.review_notes ? (
+            <div className="mt-4 rounded-md border border-red-100 bg-red-50 p-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-red-600">
+                Rejection reason
+              </p>
+              <p className="mt-1 text-sm leading-6 text-red-800">
+                {item.latestReview.review_notes}
+              </p>
+            </div>
+          ) : null}
+          <div className="mt-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">
+              Review history
+            </p>
+            <div className="mt-3">
+              <ReviewHistoryTimeline allReviews={item.allReviews} />
+            </div>
+          </div>
+        </div>
+        <div className="rounded-md border border-zinc-200 bg-zinc-50 p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">
+            Reinstate or keep rejected
+          </p>
+          <p className="mt-2 text-xs leading-5 text-zinc-500">
+            Save a new review decision to move this provider back into the
+            queue or directly into the verified pool.
+          </p>
+          <AdminReviewForm item={item} />
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function SummaryMetric({
+  label,
+  value,
+  highlight,
+}: {
+  label: string;
+  value: string;
+  highlight?: "queue" | "verified" | "rejected";
+}) {
+  const valueColor =
+    highlight === "queue"
+      ? "text-amber-600"
+      : highlight === "verified"
+        ? "text-emerald-600"
+        : highlight === "rejected"
+          ? "text-red-600"
+          : "text-zinc-950";
+
   return (
     <div className="rounded-md border border-zinc-200 bg-zinc-50 p-4">
       <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">
         {label}
       </dt>
-      <dd className="mt-2 text-2xl font-semibold text-zinc-950">{value}</dd>
+      <dd className={`mt-2 text-2xl font-semibold ${valueColor}`}>{value}</dd>
     </div>
   );
 }

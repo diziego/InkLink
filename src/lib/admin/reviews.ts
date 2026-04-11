@@ -28,6 +28,7 @@ export type AdminProviderReviewItem = {
   wholesaleReadiness: ProviderWholesaleReadinessRow | null;
   qualityMetrics: ProviderQualityMetricsRow | null;
   latestReview: AdminProviderReviewRow | null;
+  allReviews: AdminProviderReviewRow[];
 };
 
 export type AdminReviewData = {
@@ -35,9 +36,11 @@ export type AdminReviewData = {
   providerItems: AdminProviderReviewItem[];
   queueItems: AdminProviderReviewItem[];
   verifiedItems: AdminProviderReviewItem[];
+  rejectedItems: AdminProviderReviewItem[];
   totalProviders: number;
   reviewQueueCount: number;
   verifiedCount: number;
+  rejectedCount: number;
   openCapacityUnits: number;
 };
 
@@ -124,10 +127,14 @@ export async function loadAdminReviewData(): Promise<AdminReviewData> {
   );
 
   const latestReviewMap = new Map<string, AdminProviderReviewRow>();
+  const allReviewsMap = new Map<string, AdminProviderReviewRow[]>();
   for (const review of (providerReviewsResponse.data as AdminProviderReviewRow[] | null) ?? []) {
     if (!latestReviewMap.has(review.provider_profile_id)) {
       latestReviewMap.set(review.provider_profile_id, review);
     }
+    const existing = allReviewsMap.get(review.provider_profile_id) ?? [];
+    existing.push(review);
+    allReviewsMap.set(review.provider_profile_id, existing);
   }
 
   const providerItems = providerProfiles.map((providerProfile) => ({
@@ -136,6 +143,7 @@ export async function loadAdminReviewData(): Promise<AdminReviewData> {
     wholesaleReadiness: wholesaleReadinessMap.get(providerProfile.id) ?? null,
     qualityMetrics: qualityMetricsMap.get(providerProfile.id) ?? null,
     latestReview: latestReviewMap.get(providerProfile.id) ?? null,
+    allReviews: allReviewsMap.get(providerProfile.id) ?? [],
   }));
 
   const queueItems = providerItems.filter(
@@ -143,6 +151,9 @@ export async function loadAdminReviewData(): Promise<AdminReviewData> {
   );
   const verifiedItems = providerItems.filter(
     ({ providerProfile }) => providerProfile.verification_status === "verified",
+  );
+  const rejectedItems = providerItems.filter(
+    ({ providerProfile }) => providerProfile.verification_status === "rejected",
   );
   const openCapacityUnits = providerItems.reduce((total, item) => {
     return (
@@ -160,9 +171,11 @@ export async function loadAdminReviewData(): Promise<AdminReviewData> {
     providerItems,
     queueItems,
     verifiedItems,
+    rejectedItems,
     totalProviders: providerItems.length,
     reviewQueueCount: queueItems.length,
     verifiedCount: verifiedItems.length,
+    rejectedCount: rejectedItems.length,
     openCapacityUnits,
   };
 }
@@ -230,9 +243,11 @@ function getEmptyAdminReviewData(
     providerItems: [],
     queueItems: [],
     verifiedItems: [],
+    rejectedItems: [],
     totalProviders: 0,
     reviewQueueCount: 0,
     verifiedCount: 0,
+    rejectedCount: 0,
     openCapacityUnits: 0,
   };
 }
