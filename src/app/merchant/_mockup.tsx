@@ -60,9 +60,12 @@ type StateSnapshot = {
   artworkNaturalSize: Size | null;
   artworkPosition: Position;
   artworkScale: number; // stores actualScale (derived)
+  relativeScale: number;
   templateAnchorPosition: Position | null;
   activeTemplateId: string | null;
 };
+
+type ImageQuality = "good" | "acceptable" | "low";
 
 type PlacementTemplate = {
   id: string;
@@ -74,6 +77,12 @@ type PlacementTemplate = {
   anchorY: "top" | "center" | "bottom";
   offsetXPercent: number;
   offsetYPercent: number;
+  // Scale range (1–100 relative scale) within which this template stays highlighted.
+  minRelativeScale: number;
+  maxRelativeScale: number;
+  // "anchor" = artwork must stay near the template's target position.
+  // "anywhere" = any position within the print area keeps the template active.
+  positionZone: "anchor" | "anywhere";
 };
 
 // ─── Placement templates ──────────────────────────────────────────────────────
@@ -89,6 +98,9 @@ const PLACEMENT_TEMPLATES: PlacementTemplate[] = [
     anchorY: "top",
     offsetXPercent: 0.06,
     offsetYPercent: 0.06,
+    minRelativeScale: 1,
+    maxRelativeScale: 35,
+    positionZone: "anchor",
   },
   {
     id: "center_chest",
@@ -100,6 +112,9 @@ const PLACEMENT_TEMPLATES: PlacementTemplate[] = [
     anchorY: "top",
     offsetXPercent: 0,
     offsetYPercent: 0.08,
+    minRelativeScale: 36,
+    maxRelativeScale: 62,
+    positionZone: "anchor",
   },
   {
     id: "full_front",
@@ -111,6 +126,9 @@ const PLACEMENT_TEMPLATES: PlacementTemplate[] = [
     anchorY: "center",
     offsetXPercent: 0,
     offsetYPercent: 0,
+    minRelativeScale: 63,
+    maxRelativeScale: 83,
+    positionZone: "anywhere",
   },
   {
     id: "oversize_front",
@@ -122,6 +140,9 @@ const PLACEMENT_TEMPLATES: PlacementTemplate[] = [
     anchorY: "center",
     offsetXPercent: 0,
     offsetYPercent: 0,
+    minRelativeScale: 84,
+    maxRelativeScale: 100,
+    positionZone: "anywhere",
   },
   {
     id: "upper_back",
@@ -133,6 +154,9 @@ const PLACEMENT_TEMPLATES: PlacementTemplate[] = [
     anchorY: "top",
     offsetXPercent: 0,
     offsetYPercent: 0.05,
+    minRelativeScale: 36,
+    maxRelativeScale: 83,
+    positionZone: "anchor",
   },
   {
     id: "full_back",
@@ -144,15 +168,110 @@ const PLACEMENT_TEMPLATES: PlacementTemplate[] = [
     anchorY: "center",
     offsetXPercent: 0,
     offsetYPercent: 0,
+    minRelativeScale: 84,
+    maxRelativeScale: 100,
+    positionZone: "anywhere",
   },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+function getImageQuality(dpi: number): ImageQuality {
+  if (dpi >= 300) return "good";
+  if (dpi >= 150) return "acceptable";
+  return "low";
+}
+
 function getPrintAreaRect(widthIn: number, heightIn: number) {
   const w = widthIn * INCH_PX;
   const h = heightIn * INCH_PX;
   return { x: (CANVAS_SIZE - w) / 2, y: (CANVAS_SIZE - h) / 2, w, h };
+}
+
+/**
+ * Returns true if the current artwork state falls within the template's
+ * highlight zone (scale range + position zone).
+ *
+ * All position coordinates are print-area-relative (0 = print area top-left).
+ */
+function isInTemplateZone(
+  template: PlacementTemplate,
+  printArea: { widthIn: number; heightIn: number },
+  currentRelativeScale: number,
+  currentPosition: Position,
+  artW: number,
+  artH: number,
+): boolean {
+  if (
+    currentRelativeScale < template.minRelativeScale ||
+    currentRelativeScale > template.maxRelativeScale
+  ) {
+    return false;
+  }
+
+  // "anywhere" templates stay highlighted regardless of position (clamping
+  // already guarantees the artwork stays within the print area).
+  if (template.positionZone === "anywhere") {
+    return true;
+  }
+
+  // "anchor" zone: artwork center must be within threshold of the template's
+  // expected center position (print-area-relative coordinates).
+  const POSITION_THRESHOLD = 20;
+  const printW = printArea.widthIn * INCH_PX;
+  const printH = printArea.heightIn * INCH_PX;
+
+  let expectedCenterX: number;
+  if (template.anchorX === "left") {
+    expectedCenterX = printW * template.offsetXPercent + artW / 2;
+  } else if (template.anchorX === "right") {
+    expectedCenterX = printW * (1 - template.offsetXPercent) - artW / 2;
+  } else {
+    expectedCenterX = printW / 2 + printW * template.offsetXPercent;
+  }
+
+  let expectedCenterY: number;
+  if (template.anchorY === "top") {
+    expectedCenterY = printH * template.offsetYPercent + artH / 2;
+  } else if (template.anchorY === "bottom") {
+    expectedCenterY = printH * (1 - template.offsetYPercent) - artH / 2;
+  } else {
+    expectedCenterY = printH / 2 + printH * template.offsetYPercent;
+  }
+
+  const dx = Math.abs(currentPosition.x + artW / 2 - expectedCenterX);
+  const dy = Math.abs(currentPosition.y + artH / 2 - expectedCenterY);
+  return dx <= POSITION_THRESHOLD && dy <= POSITION_THRESHOLD;
+}
+
+/**
+ * Finds the best-matching template for the current artwork state.
+ * If multiple templates match (overlapping ranges), picks the one whose
+ * scale midpoint is closest to currentRelativeScale.
+ * Returns null if no template matches.
+ */
+function findMatchingTemplate(
+  templates: PlacementTemplate[],
+  printArea: { widthIn: number; heightIn: number },
+  currentRelativeScale: number,
+  currentPosition: Position,
+  artW: number,
+  artH: number,
+  zoneFilter?: "anchor" | "anywhere",
+): PlacementTemplate | null {
+  const candidates = templates.filter((t) => {
+    if (zoneFilter && t.positionZone !== zoneFilter) return false;
+    return isInTemplateZone(t, printArea, currentRelativeScale, currentPosition, artW, artH);
+  });
+  if (candidates.length === 0) return null;
+  if (candidates.length === 1) return candidates[0];
+  return candidates.reduce((best, t) => {
+    const tMid = (t.minRelativeScale + t.maxRelativeScale) / 2;
+    const bestMid = (best.minRelativeScale + best.maxRelativeScale) / 2;
+    return Math.abs(currentRelativeScale - tMid) < Math.abs(currentRelativeScale - bestMid)
+      ? t
+      : best;
+  });
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -196,6 +315,7 @@ export function MockupEditor({
     artworkNaturalSize: null,
     artworkPosition: initialPosition ?? { x: 0, y: 0 },
     artworkScale: 0,
+    relativeScale: initialRelativeScale,
     templateAnchorPosition: initialTemplateAnchorPosition,
     activeTemplateId: initialActiveTemplateId,
   });
@@ -233,8 +353,25 @@ export function MockupEditor({
     initialIntendedCenter,
   );
 
+  // Image quality state — set on load, shown as inline banners / upload modal.
+  const [effectiveDPI, setEffectiveDPI] = useState<number | null>(null);
+  const [imageQuality, setImageQuality] = useState<ImageQuality | null>(null);
+  const [showQualityModal, setShowQualityModal] = useState(false);
+  const [qualityDismissed, setQualityDismissed] = useState(false);
+
   // Derived actual pixel scale used for canvas drawing and position math.
   const actualScale = (relativeScale / 100) * maxAllowedScale;
+
+  // Effective DPI at the current scale — lower DPI when artwork is printed larger.
+  const currentEffectiveDPI =
+    artworkNaturalSize && effectiveDPI !== null
+      ? Math.round(effectiveDPI / (relativeScale / 100))
+      : null;
+
+  // True when a non-low-quality image is being displayed at a size that degrades
+  // its print DPI below the acceptable threshold.
+  const isScaledTooLarge =
+    currentEffectiveDPI !== null && currentEffectiveDPI < 150 && relativeScale > 50;
 
   // Keep the snapshot ref current on every render so window event handlers
   // (registered once) always read the latest values without stale closures.
@@ -243,6 +380,7 @@ export function MockupEditor({
     artworkNaturalSize,
     artworkPosition,
     artworkScale: actualScale,
+    relativeScale,
     templateAnchorPosition,
     activeTemplateId,
   };
@@ -459,15 +597,43 @@ export function MockupEditor({
         y: Math.max(0, Math.min(Math.max(0, rh - ah), dr.startPosY + dy)),
       };
 
-      // Deselect template in real time if artwork has drifted from anchor.
-      if (sr.templateAnchorPosition && sr.activeTemplateId) {
-        const tdx = Math.abs(newPos.x - sr.templateAnchorPosition.x);
-        const tdy = Math.abs(newPos.y - sr.templateAnchorPosition.y);
-        if (tdx > 12 || tdy > 12) {
+      // Deselect template in real time if artwork has left its zone.
+      if (sr.activeTemplateId) {
+        const activeTemplate = PLACEMENT_TEMPLATES.find(
+          (t) => t.id === sr.activeTemplateId,
+        );
+        if (
+          activeTemplate &&
+          !isInTemplateZone(activeTemplate, area, sr.relativeScale, newPos, aw, ah)
+        ) {
           setActiveTemplateId(null);
           setTemplateAnchorPosition(null);
           stateRef.current.templateAnchorPosition = null;
           stateRef.current.activeTemplateId = null;
+        }
+      }
+
+      // Auto-highlight during drag if no template is currently active.
+      // Uses stateRef.current.activeTemplateId (synchronously updated by the
+      // deselect block above) rather than sr.activeTemplateId (stale capture).
+      if (!stateRef.current.activeTemplateId) {
+        const areaTemplates = PLACEMENT_TEMPLATES.filter((t) =>
+          t.printAreas.includes(area.name),
+        );
+        const dragMatch = findMatchingTemplate(
+          areaTemplates,
+          area,
+          sr.relativeScale,
+          newPos,
+          aw,
+          ah,
+          "anchor",
+        );
+        if (dragMatch) {
+          setActiveTemplateId(dragMatch.id);
+          setTemplateAnchorPosition({ x: newPos.x, y: newPos.y });
+          stateRef.current.activeTemplateId = dragMatch.id;
+          stateRef.current.templateAnchorPosition = { x: newPos.x, y: newPos.y };
         }
       }
 
@@ -487,19 +653,67 @@ export function MockupEditor({
         if (sr.artworkNaturalSize) {
           const aw = sr.artworkNaturalSize.w * sr.artworkScale;
           const ah = sr.artworkNaturalSize.h * sr.artworkScale;
+          const area =
+            product.printAreas[sr.selectedPrintAreaIndex] ?? product.printAreas[0];
+
           // Track where the artwork actually landed as the new scale anchor.
           setIntendedCenter({
             x: sr.artworkPosition.x + aw / 2,
             y: sr.artworkPosition.y + ah / 2,
           });
-          // Deselect the active template if the artwork was dragged away from
-          // where the template placed it.
-          if (sr.templateAnchorPosition && sr.activeTemplateId) {
-            const dx = Math.abs(sr.artworkPosition.x - sr.templateAnchorPosition.x);
-            const dy = Math.abs(sr.artworkPosition.y - sr.templateAnchorPosition.y);
-            if (dx > 12 || dy > 12) {
+
+          // Deselect the active template if artwork left its zone.
+          let finalTemplateId = sr.activeTemplateId;
+          if (finalTemplateId) {
+            const activeTemplate = PLACEMENT_TEMPLATES.find(
+              (t) => t.id === finalTemplateId,
+            );
+            if (
+              activeTemplate &&
+              !isInTemplateZone(
+                activeTemplate,
+                area,
+                sr.relativeScale,
+                sr.artworkPosition,
+                aw,
+                ah,
+              )
+            ) {
               setActiveTemplateId(null);
               setTemplateAnchorPosition(null);
+              stateRef.current.activeTemplateId = null;
+              stateRef.current.templateAnchorPosition = null;
+              finalTemplateId = null;
+            }
+          }
+
+          // Auto-highlight if no template is active and we landed in a zone.
+          // Only consider "anchor" templates — "anywhere" templates should not
+          // auto-highlight from position changes.
+          if (!finalTemplateId && area) {
+            const areaTemplates = PLACEMENT_TEMPLATES.filter((t) =>
+              t.printAreas.includes(area.name),
+            );
+            const match = findMatchingTemplate(
+              areaTemplates,
+              area,
+              sr.relativeScale,
+              sr.artworkPosition,
+              aw,
+              ah,
+              "anchor",
+            );
+            if (match) {
+              setActiveTemplateId(match.id);
+              setTemplateAnchorPosition({
+                x: sr.artworkPosition.x,
+                y: sr.artworkPosition.y,
+              });
+              stateRef.current.activeTemplateId = match.id;
+              stateRef.current.templateAnchorPosition = {
+                x: sr.artworkPosition.x,
+                y: sr.artworkPosition.y,
+              };
             }
           }
         }
@@ -520,16 +734,65 @@ export function MockupEditor({
         if (sr.artworkNaturalSize) {
           const aw = sr.artworkNaturalSize.w * sr.artworkScale;
           const ah = sr.artworkNaturalSize.h * sr.artworkScale;
+          const area =
+            product.printAreas[sr.selectedPrintAreaIndex] ?? product.printAreas[0];
+
           setIntendedCenter({
             x: sr.artworkPosition.x + aw / 2,
             y: sr.artworkPosition.y + ah / 2,
           });
-          if (sr.templateAnchorPosition && sr.activeTemplateId) {
-            const dx = Math.abs(sr.artworkPosition.x - sr.templateAnchorPosition.x);
-            const dy = Math.abs(sr.artworkPosition.y - sr.templateAnchorPosition.y);
-            if (dx > 12 || dy > 12) {
+
+          let finalTemplateId = sr.activeTemplateId;
+          if (finalTemplateId) {
+            const activeTemplate = PLACEMENT_TEMPLATES.find(
+              (t) => t.id === finalTemplateId,
+            );
+            if (
+              activeTemplate &&
+              !isInTemplateZone(
+                activeTemplate,
+                area,
+                sr.relativeScale,
+                sr.artworkPosition,
+                aw,
+                ah,
+              )
+            ) {
               setActiveTemplateId(null);
               setTemplateAnchorPosition(null);
+              stateRef.current.activeTemplateId = null;
+              stateRef.current.templateAnchorPosition = null;
+              finalTemplateId = null;
+            }
+          }
+
+          // Auto-highlight if no template is active and we landed in a zone.
+          // Only consider "anchor" templates — "anywhere" templates should not
+          // auto-highlight from position changes.
+          if (!finalTemplateId && area) {
+            const areaTemplates = PLACEMENT_TEMPLATES.filter((t) =>
+              t.printAreas.includes(area.name),
+            );
+            const match = findMatchingTemplate(
+              areaTemplates,
+              area,
+              sr.relativeScale,
+              sr.artworkPosition,
+              aw,
+              ah,
+              "anchor",
+            );
+            if (match) {
+              setActiveTemplateId(match.id);
+              setTemplateAnchorPosition({
+                x: sr.artworkPosition.x,
+                y: sr.artworkPosition.y,
+              });
+              stateRef.current.activeTemplateId = match.id;
+              stateRef.current.templateAnchorPosition = {
+                x: sr.artworkPosition.x,
+                y: sr.artworkPosition.y,
+              };
             }
           }
         }
@@ -640,16 +903,44 @@ export function MockupEditor({
         const aw = naturalW * newMax;
         const ah = naturalH * newMax;
 
+        const centeredX = Math.max(0, (rw - aw) / 2);
+        const centeredY = Math.max(0, (rh - ah) / 2);
+
+        // DPI quality check — measured at full print-area width.
+        const dpi = Math.round(img.naturalWidth / area.widthIn);
+        const quality = getImageQuality(dpi);
+        setEffectiveDPI(dpi);
+        setImageQuality(quality);
+        setQualityDismissed(false);
+        if (quality === "low") {
+          setShowQualityModal(true);
+        }
+
         setArtworkImage(img);
         setArtworkNaturalSize({ w: naturalW, h: naturalH });
         setRelativeScale(100);
-        setArtworkPosition({
-          x: Math.max(0, (rw - aw) / 2),
-          y: Math.max(0, (rh - ah) / 2),
-        });
+        setArtworkPosition({ x: centeredX, y: centeredY });
         setIntendedCenter({ x: rw / 2, y: rh / 2 });
-        setActiveTemplateId(null);
-        setTemplateAnchorPosition(null);
+
+        // Auto-highlight: check if the centered, full-scale position matches a template.
+        const areaTemplates = PLACEMENT_TEMPLATES.filter((t) =>
+          t.printAreas.includes(area.name),
+        );
+        const uploadMatch = findMatchingTemplate(
+          areaTemplates,
+          area,
+          100,
+          { x: centeredX, y: centeredY },
+          aw,
+          ah,
+        );
+        if (uploadMatch) {
+          setActiveTemplateId(uploadMatch.id);
+          setTemplateAnchorPosition({ x: centeredX, y: centeredY });
+        } else {
+          setActiveTemplateId(null);
+          setTemplateAnchorPosition(null);
+        }
       };
       img.src = dataUrl;
     };
@@ -673,6 +964,10 @@ export function MockupEditor({
     setActiveTemplateId(null);
     setTemplateAnchorPosition(null);
     setIsDragOver(false);
+    setEffectiveDPI(null);
+    setImageQuality(null);
+    setShowQualityModal(false);
+    setQualityDismissed(false);
   }
 
   function applyTemplate(template: PlacementTemplate) {
@@ -687,8 +982,16 @@ export function MockupEditor({
     const newActualScale = Math.min(scaleByWidth, maxAllowedScale);
     const newRelative = Math.max(1, Math.round((newActualScale / maxAllowedScale) * 100));
 
-    const artW = artworkNaturalSize.w * newActualScale;
-    const artH = artworkNaturalSize.h * newActualScale;
+    // Clamp to the template's own declared range so the highlight is always
+    // consistent with the slider value and isInTemplateZone passes immediately.
+    const clampedRelative = Math.max(
+      template.minRelativeScale,
+      Math.min(template.maxRelativeScale, newRelative),
+    );
+    const finalActualScale = (clampedRelative / 100) * maxAllowedScale;
+
+    const artW = artworkNaturalSize.w * finalActualScale;
+    const artH = artworkNaturalSize.h * finalActualScale;
 
     // Calculate the desired artwork center in print-area-relative coordinates.
     let centerX: number;
@@ -714,7 +1017,7 @@ export function MockupEditor({
     const clampedX = Math.max(0, Math.min(printW - artW, centerX - artW / 2));
     const clampedY = Math.max(0, Math.min(printH - artH, centerY - artH / 2));
 
-    setRelativeScale(newRelative);
+    setRelativeScale(clampedRelative);
     setArtworkPosition({ x: clampedX, y: clampedY });
     setActiveTemplateId(template.id);
     // Store the clamped position so drag deselection can compare against it.
@@ -729,13 +1032,23 @@ export function MockupEditor({
     const { w: rw, h: rh } = printAreaPx;
     const aw = artworkNaturalSize.w * actualScale;
     const ah = artworkNaturalSize.h * actualScale;
-    setArtworkPosition({
-      x: Math.max(0, (rw - aw) / 2),
-      y: Math.max(0, (rh - ah) / 2),
-    });
-    setActiveTemplateId(null);
-    setTemplateAnchorPosition(null);
+    const centeredX = Math.max(0, (rw - aw) / 2);
+    const centeredY = Math.max(0, (rh - ah) / 2);
+
+    setArtworkPosition({ x: centeredX, y: centeredY });
     setIntendedCenter({ x: rw / 2, y: rh / 2 });
+
+    if (activeTemplateId) {
+      const activeTemplate = PLACEMENT_TEMPLATES.find((t) => t.id === activeTemplateId);
+      if (activeTemplate?.positionZone === "anchor") {
+        // Centering moves an anchor-type template away from its target position.
+        setActiveTemplateId(null);
+        setTemplateAnchorPosition(null);
+      } else if (activeTemplate?.positionZone === "anywhere") {
+        // "anywhere" templates stay highlighted — just update the anchor.
+        setTemplateAnchorPosition({ x: centeredX, y: centeredY });
+      }
+    }
   }
 
   function handleScaleChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -762,13 +1075,56 @@ export function MockupEditor({
     const newDrawW = artworkNaturalSize.w * newActualScale;
     const newDrawH = artworkNaturalSize.h * newActualScale;
 
+    const clampedX = Math.max(
+      0,
+      Math.min(Math.max(0, rw - newDrawW), anchorX - newDrawW / 2),
+    );
+    const clampedY = Math.max(
+      0,
+      Math.min(Math.max(0, rh - newDrawH), anchorY - newDrawH / 2),
+    );
+
     setRelativeScale(newRelative);
-    setArtworkPosition({
-      x: Math.max(0, Math.min(Math.max(0, rw - newDrawW), anchorX - newDrawW / 2)),
-      y: Math.max(0, Math.min(Math.max(0, rh - newDrawH), anchorY - newDrawH / 2)),
-    });
+    setArtworkPosition({ x: clampedX, y: clampedY });
     // intendedCenter is intentionally not updated here — it stays fixed as
     // the anchor for the full duration of slider interaction.
+
+    // Deselect template if artwork has left its zone at the new scale.
+    let finalTemplateId = activeTemplateId;
+    if (finalTemplateId) {
+      const activeTemplate = PLACEMENT_TEMPLATES.find((t) => t.id === finalTemplateId);
+      if (
+        activeTemplate &&
+        !isInTemplateZone(
+          activeTemplate,
+          selectedPrintArea,
+          newRelative,
+          { x: clampedX, y: clampedY },
+          newDrawW,
+          newDrawH,
+        )
+      ) {
+        setActiveTemplateId(null);
+        setTemplateAnchorPosition(null);
+        finalTemplateId = null;
+      }
+    }
+
+    // Auto-highlight if no template is active and we're now in a zone.
+    if (!finalTemplateId) {
+      const match = findMatchingTemplate(
+        visibleTemplates,
+        selectedPrintArea,
+        newRelative,
+        { x: clampedX, y: clampedY },
+        newDrawW,
+        newDrawH,
+      );
+      if (match) {
+        setActiveTemplateId(match.id);
+        setTemplateAnchorPosition({ x: clampedX, y: clampedY });
+      }
+    }
   }
 
   // ── Render ──────────────────────────────────────────────────────────────
@@ -842,7 +1198,104 @@ export function MockupEditor({
                   if (touch) startDrag(touch.clientX, touch.clientY);
                 }}
               />
+
+              {/* Quality modal — shown on upload when image is low resolution */}
+              {showQualityModal && (
+                <div className="absolute inset-0 z-50 flex items-center justify-center rounded-xl bg-black/60 backdrop-blur-sm">
+                  <div className="mx-4 max-w-sm rounded-xl bg-white p-6 shadow-xl">
+                    <div className="mb-1 text-2xl">⚠️</div>
+                    <h3 className="text-base font-semibold text-zinc-950">
+                      Low resolution image
+                    </h3>
+                    <p className="mt-2 text-sm leading-6 text-zinc-600">
+                      This image is approximately{" "}
+                      <span className="font-semibold text-zinc-950">
+                        {effectiveDPI} DPI
+                      </span>{" "}
+                      at full print size. For best results, DTG printing requires:
+                    </p>
+                    <ul className="mt-3 space-y-1.5 text-sm text-zinc-600">
+                      <li className="flex gap-2">
+                        <span className="font-bold text-emerald-600">✓</span>
+                        300 DPI minimum (ideal)
+                      </li>
+                      <li className="flex gap-2">
+                        <span className="font-bold text-amber-500">~</span>
+                        150 DPI acceptable for small placements
+                      </li>
+                      <li className="flex gap-2">
+                        <span className="font-bold text-red-500">✗</span>
+                        Below 150 DPI may print blurry
+                      </li>
+                    </ul>
+                    <p className="mt-3 text-sm leading-6 text-zinc-600">
+                      Best file types:{" "}
+                      <span className="font-medium text-zinc-800">
+                        PNG, PDF, TIFF
+                      </span>{" "}
+                      at 300 DPI or higher.
+                    </p>
+                    <div className="mt-5 flex flex-col gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowQualityModal(false);
+                          setQualityDismissed(true);
+                        }}
+                        className="w-full rounded-md border border-zinc-300 px-4 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+                      >
+                        Continue anyway
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowQualityModal(false);
+                          fileInputRef.current?.click();
+                        }}
+                        className="w-full rounded-md bg-zinc-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800"
+                      >
+                        Replace with better image
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            {/* Persistent low-quality banner (shown after modal is dismissed) */}
+            {artworkImage && imageQuality === "low" && qualityDismissed && (
+              <div className="mt-2 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                <span className="mt-0.5 text-sm text-amber-500">⚠</span>
+                <p className="text-xs leading-5 text-amber-800">
+                  Low resolution image ({effectiveDPI} DPI). Print quality may be
+                  affected.{" "}
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="ml-1 font-medium underline"
+                  >
+                    Replace
+                  </button>
+                </p>
+              </div>
+            )}
+
+            {/* Scale-too-large warning — shown for any image when effective DPI drops too low */}
+            {artworkImage && isScaledTooLarge && (
+              <div
+                className={`flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 ${
+                  imageQuality === "low" && qualityDismissed ? "" : "mt-2"
+                }`}
+              >
+                <span className="mt-0.5 text-sm text-amber-500">⚠</span>
+                <p className="text-xs leading-5 text-amber-800">
+                  Image may appear blurry at this size (~{currentEffectiveDPI} DPI
+                  effective). Scale down for better quality.
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="mt-3 flex justify-center gap-2">
@@ -863,6 +1316,14 @@ export function MockupEditor({
               </button>
             )}
           </div>
+
+          {/* Upload guidance — shown only when no artwork is loaded */}
+          {!artworkImage && (
+            <p className="mt-3 text-center text-xs text-zinc-400">
+              Best results: PNG or TIFF · 300 DPI · 3600 × 4800 px for full
+              front
+            </p>
+          )}
 
           <input
             ref={fileInputRef}
