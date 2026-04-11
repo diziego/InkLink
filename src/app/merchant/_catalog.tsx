@@ -11,7 +11,7 @@ import type {
 } from "@/lib/catalog/products";
 import { submitMerchantOrderAction } from "@/actions/merchant-orders";
 import { MockupEditor } from "./_mockup";
-import type { FulfillmentGoal } from "@/types";
+import type { FulfillmentGoal, MerchantOrder } from "@/types";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -51,9 +51,10 @@ export type MerchantCatalogClientProps = {
   blankBrandOptions: string[];
   blankStyleOptions: string[];
   submittedOrderId: string;
+  submittedOrder: MerchantOrder | null;
 };
 
-export function MerchantCatalogClient({ submittedOrderId }: MerchantCatalogClientProps) {
+export function MerchantCatalogClient({ submittedOrderId, submittedOrder }: MerchantCatalogClientProps) {
   const [view, setView] = useState<ViewState>("catalog");
   const [activeTab, setActiveTab] = useState<CatalogTab>("all");
   const [selectedProduct, setSelectedProduct] =
@@ -91,7 +92,13 @@ export function MerchantCatalogClient({ submittedOrderId }: MerchantCatalogClien
 
   // After a form submission the server redirects to /merchant?orderId=...
   // Show the success view immediately instead of resetting to the catalog.
-  if (submittedOrderId) return <OrderSuccessView orderId={submittedOrderId} />;
+  if (submittedOrderId) return (
+    <OrderSuccessView
+      orderId={submittedOrderId}
+      order={submittedOrder}
+      mockupSnapshotUrl={mockupSnapshotUrl}
+    />
+  );
 
   // ── View B: Mockup editor ─────────────────────────────────────────────
   if (view === "mockup" && selectedProduct) {
@@ -499,10 +506,20 @@ function OrderFormView({
 
 // ─── Order success view ───────────────────────────────────────────────────────
 
-function OrderSuccessView({ orderId }: { orderId: string }) {
+function OrderSuccessView({
+  orderId: _orderId,
+  order,
+  mockupSnapshotUrl,
+}: {
+  orderId: string;
+  order: MerchantOrder | null;
+  mockupSnapshotUrl: string;
+}) {
+  const [showDetails, setShowDetails] = useState(false);
+
   return (
-    <div className="py-16 text-center">
-      <div className="mx-auto max-w-md">
+    <div className="py-16">
+      <div className="mx-auto max-w-md text-center">
         <div className="mb-4 text-5xl">✓</div>
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-600">
           Order submitted
@@ -522,13 +539,181 @@ function OrderSuccessView({ orderId }: { orderId: string }) {
           >
             Start a new order
           </a>
-          <a
-            href={`/merchant?orderId=${orderId}`}
+          <button
+            onClick={() => setShowDetails((v) => !v)}
             className="inline-flex h-11 items-center justify-center rounded-md border border-zinc-300 px-6 text-sm font-semibold text-zinc-700 hover:bg-zinc-50"
           >
-            View order details
-          </a>
+            {showDetails ? "Hide order details" : "View order details"}
+          </button>
         </div>
+      </div>
+
+      {showDetails && (
+        <div className="mx-auto mt-10 max-w-xl rounded-xl border border-zinc-200 bg-white shadow-sm">
+          {order ? (
+            <OrderSummaryCard order={order} mockupSnapshotUrl={mockupSnapshotUrl} />
+          ) : (
+            <div className="p-6 text-center text-sm text-zinc-500">
+              Order details unavailable. Check your order history below.
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function OrderSummaryCard({
+  order,
+  mockupSnapshotUrl,
+}: {
+  order: MerchantOrder;
+  mockupSnapshotUrl: string;
+}) {
+  const item = order.items[0];
+
+  const garmentTypeLabels: Record<string, string> = {
+    t_shirt: "T-Shirt",
+    long_sleeve: "Long Sleeve",
+    hoodie: "Hoodie",
+    crewneck: "Crewneck",
+    tank: "Tank",
+    tote: "Tote",
+    hat: "Hat",
+  };
+
+  const fulfillmentGoalLabels: Record<string, string> = {
+    local_first: "Local first",
+    fastest_turnaround: "Fastest turnaround",
+    lowest_cost: "Lowest cost",
+    premium_blank: "Premium blank",
+  };
+
+  const statusLabels: Record<string, string> = {
+    draft: "Draft",
+    ready_for_routing: "Ready for routing",
+    routed: "Routed",
+    accepted: "Accepted",
+    in_production: "In production",
+    ready: "Ready",
+    shipped: "Shipped",
+    completed: "Completed",
+    cancelled: "Cancelled",
+  };
+
+  return (
+    <div className="divide-y divide-zinc-100">
+      {mockupSnapshotUrl && (
+        <div className="flex items-center gap-4 border-b border-zinc-100 px-6 py-4">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={mockupSnapshotUrl}
+            alt="Approved mockup"
+            className="h-20 w-20 rounded-lg border border-zinc-200 object-cover shadow-sm"
+          />
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">
+              Approved mockup
+            </p>
+            <p className="mt-1 text-xs font-medium text-emerald-700">
+              ✓ Design approved
+            </p>
+          </div>
+        </div>
+      )}
+      <div className="px-6 py-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">
+          Order details
+        </p>
+        <div className="mt-3 grid grid-cols-2 gap-4">
+          <div>
+            <p className="text-xs text-zinc-400">Status</p>
+            <p className="mt-0.5 text-sm font-medium text-zinc-950">
+              {statusLabels[order.status] ?? order.status}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-zinc-400">Order ID</p>
+            <p className="mt-0.5 break-all font-mono text-xs text-zinc-600">
+              {order.id.slice(0, 8)}...
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-zinc-400">Fulfillment goal</p>
+            <p className="mt-0.5 text-sm font-medium text-zinc-950">
+              {fulfillmentGoalLabels[order.fulfillmentGoal] ?? order.fulfillmentGoal}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-zinc-400">ZIP code</p>
+            <p className="mt-0.5 text-sm font-medium text-zinc-950">
+              {order.fulfillmentZip || "—"}
+            </p>
+          </div>
+          {order.localPickupPreferred && (
+            <div className="col-span-2">
+              <p className="text-xs text-zinc-400">Local pickup preferred</p>
+              <p className="mt-0.5 text-sm font-medium text-zinc-950">Yes</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {item && (
+        <div className="px-6 py-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">
+            Item
+          </p>
+          <div className="mt-3 grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs text-zinc-400">Garment</p>
+              <p className="mt-0.5 text-sm font-medium text-zinc-950">
+                {garmentTypeLabels[item.garmentType] ?? item.garmentType}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-zinc-400">Quantity</p>
+              <p className="mt-0.5 text-sm font-medium text-zinc-950">
+                {item.quantity} units
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-zinc-400">Print method</p>
+              <p className="mt-0.5 text-sm font-medium text-zinc-950">
+                {item.printMethod?.toUpperCase() ?? "DTG"}
+              </p>
+            </div>
+            {item.preferredBlankBrand && (
+              <div>
+                <p className="text-xs text-zinc-400">Blank brand</p>
+                <p className="mt-0.5 text-sm font-medium text-zinc-950">
+                  {item.preferredBlankBrand}
+                </p>
+              </div>
+            )}
+            {item.preferredBlankStyle && (
+              <div className="col-span-2">
+                <p className="text-xs text-zinc-400">Blank style</p>
+                <p className="mt-0.5 text-sm font-medium text-zinc-950">
+                  {item.preferredBlankStyle}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="px-6 py-4">
+        <p className="text-xs text-zinc-400">
+          Submitted{" "}
+          {new Date(order.createdAt).toLocaleDateString("en-US", {
+            month: "long",
+            day: "numeric",
+            year: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+          })}
+        </p>
       </div>
     </div>
   );

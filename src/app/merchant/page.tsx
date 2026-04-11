@@ -153,6 +153,7 @@ export default async function MerchantPage({ searchParams }: MerchantPageProps) 
           blankBrandOptions={blankBrandOptions}
           blankStyleOptions={blankStyleOptions}
           submittedOrderId={orderId}
+          submittedOrder={savedOrder}
         />
 
         {/* Recommendations — visible only after an order has been saved */}
