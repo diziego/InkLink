@@ -1,3 +1,4 @@
+import { getCachedDistanceMiles } from "@/lib/geo/distance";
 import type {
   BlankInventoryItem,
   MerchantOrder,
@@ -43,11 +44,15 @@ export type CapacityFitResult = {
   note: string;
 };
 
-// Mock MVP calculation only. Replace with geocoding or carrier distance later.
 export function estimateMockDistanceMiles(
   fulfillmentZip: string,
   providerZip: string,
 ) {
+  // Check real geocoded distance cache first (populated by precomputeDistances)
+  const real = getCachedDistanceMiles(fulfillmentZip, providerZip);
+  if (real !== null) return real;
+
+  // Fall back to mock lookup table if geocoding was unavailable
   return (
     MOCK_ZIP_DISTANCE_MILES[fulfillmentZip]?.[providerZip] ??
     MOCK_ZIP_DISTANCE_MILES[providerZip]?.[fulfillmentZip] ??

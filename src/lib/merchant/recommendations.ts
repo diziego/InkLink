@@ -4,6 +4,7 @@ import {
   hasSupabaseServiceRoleEnv,
 } from "@/lib/supabase";
 import { recommendProvidersForOrder } from "@/lib/routing";
+import { precomputeDistances } from "@/lib/geo/distance";
 import type {
   BlankInventoryItem,
   MerchantOrder,
@@ -124,6 +125,16 @@ export async function recommendLiveProvidersForOrder(order: MerchantOrder) {
       providerData,
       recommendations: [],
     };
+  }
+
+  // Pre-compute real ZIP distances before the routing engine runs.
+  // Distances are stored in a module-level cache and read synchronously
+  // by estimateMockDistanceMiles in mock-calculations.ts.
+  const providerZips = providerData.providers
+    .map((p) => p.zip)
+    .filter(Boolean);
+  if (order.fulfillmentZip && providerZips.length > 0) {
+    await precomputeDistances(order.fulfillmentZip, providerZips);
   }
 
   return {
