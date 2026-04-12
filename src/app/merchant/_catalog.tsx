@@ -738,7 +738,7 @@ function OrderSuccessView({
   mockupSnapshotUrl: string;
   cartItems: CartItem[];
 }) {
-  const [showDetails, setShowDetails] = useState(false);
+  const [showDetails, setShowDetails] = useState(true);
 
   return (
     <div className="py-16">
