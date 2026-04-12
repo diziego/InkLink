@@ -118,6 +118,108 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
   },
 
   {
+    id: "gildan-hammer",
+    name: "Hammer Tee",
+    brand: "Gildan",
+    sku: "H000",
+    garmentType: "tee",
+    description:
+      "6 oz. 100% ring-spun US cotton with high stitch density for a smooth, premium printing surface. Classic fit with a seamless non-topstitched collar and tear-away label. The heavyweight step-up from the 5000.",
+    weightGsm: 203,
+    availableSizes: ["S", "M", "L", "XL", "2XL", "3XL"],
+    availableColors: [
+      { name: "White", hex: "#FFFFFF" },
+      { name: "Black", hex: "#1A1A1A" },
+      { name: "Navy", hex: "#1B2A4A" },
+      { name: "Sport Grey", hex: "#A8A9AD" },
+      { name: "Sand", hex: "#D4C5A9" },
+    ],
+    printAreas: [
+      { name: "front", widthIn: 12, heightIn: 16 },
+      { name: "back", widthIn: 12, heightIn: 16 },
+    ],
+    priceRangeLow: 599,
+    priceRangeHigh: 999,
+  },
+
+  {
+    id: "la-apparel-1801gd",
+    name: "Garment Dye Heavyweight Tee",
+    brand: "Los Angeles Apparel",
+    sku: "1801GD",
+    garmentType: "tee",
+    description:
+      "6.5 oz. 100% USA cotton, knitted, cut, sewn, and dyed in Los Angeles. Garment-dyed for a broken-in vintage hand-feel with a generous unisex fit and a high ribbed collar. The streetwear blank benchmark.",
+    weightGsm: 220,
+    availableSizes: ["XS", "S", "M", "L", "XL", "2XL", "3XL"],
+    availableColors: [
+      { name: "White", hex: "#FFFFFF" },
+      { name: "Vintage Black", hex: "#2A2A28" },
+      { name: "Navy", hex: "#1B2A4A" },
+      { name: "Sage", hex: "#8A9E7E" },
+      { name: "Mauve", hex: "#C4A0A0" },
+      { name: "Light Blue", hex: "#A8C8D8" },
+      { name: "Cement", hex: "#9B9B8B" },
+    ],
+    printAreas: [
+      { name: "front", widthIn: 12, heightIn: 16 },
+      { name: "back", widthIn: 12, heightIn: 16 },
+    ],
+    priceRangeLow: 1499,
+    priceRangeHigh: 2299,
+  },
+
+  {
+    id: "shaka-wear-shgd",
+    name: "Max Heavyweight Garment Dye Tee",
+    brand: "Shaka Wear",
+    sku: "SHGD",
+    garmentType: "tee",
+    description:
+      "7.5 oz. 100% USA cotton — the heaviest garment-dye tee in the industry. Pigment/reactive-washed for a vintage washed-out look. Oversized boxy fit with reinforced seams and a ribbed crew neck. Built for clean DTG printing.",
+    weightGsm: 255,
+    availableSizes: ["XS", "S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"],
+    availableColors: [
+      { name: "White", hex: "#FFFFFF" },
+      { name: "Black", hex: "#1A1A1A" },
+      { name: "Shadow", hex: "#3A3A3A" },
+      { name: "Midnight Navy", hex: "#1A2440" },
+      { name: "Moss", hex: "#3A4A30" },
+      { name: "Cement", hex: "#9B9B8B" },
+    ],
+    printAreas: [
+      { name: "front", widthIn: 12, heightIn: 16 },
+      { name: "back", widthIn: 12, heightIn: 16 },
+    ],
+    priceRangeLow: 1299,
+    priceRangeHigh: 1999,
+  },
+
+  {
+    id: "shaka-wear-swds",
+    name: "Max Heavyweight Garment Dye Drop Shoulder Tee",
+    brand: "Shaka Wear",
+    sku: "SWDS",
+    garmentType: "tee",
+    description:
+      "7.5 oz. 100% USA cotton garment-dyed drop shoulder tee. Extended shoulders and a boxy silhouette give it a streetwear-forward look straight off the blank. Same heavyweight construction and clean print surface as the SHGD.",
+    weightGsm: 255,
+    availableSizes: ["XS", "S", "M", "L", "XL", "2XL", "3XL"],
+    availableColors: [
+      { name: "White", hex: "#FFFFFF" },
+      { name: "Black", hex: "#1A1A1A" },
+      { name: "Shadow", hex: "#3A3A3A" },
+      { name: "Oatmeal", hex: "#D4C8B0" },
+    ],
+    printAreas: [
+      { name: "front", widthIn: 12, heightIn: 16 },
+      { name: "back", widthIn: 12, heightIn: 16 },
+    ],
+    priceRangeLow: 1399,
+    priceRangeHigh: 2099,
+  },
+
+  {
     id: "nl-6210",
     name: "CVC Crew Neck Tee",
     brand: "Next Level",

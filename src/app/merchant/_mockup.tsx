@@ -5,7 +5,7 @@ import type { CatalogProduct } from "@/lib/catalog/products";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const CANVAS_SIZE = 400;
+const CANVAS_SIZE = 600;
 const INCH_PX = 22; // 1 inch = 22 canvas pixels
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -174,6 +174,27 @@ const PLACEMENT_TEMPLATES: PlacementTemplate[] = [
   },
 ];
 
+// ─── Garment print area offsets ───────────────────────────────────────────────
+// Normalized 0–1 ratios derived from the actual PNG dimensions + measured
+// print area positions in Photoshop. Used by the canvas compositor to position
+// the dashed print area rect precisely over the real printable area of the garment.
+// x/y = top-left of print area as fraction of image width/height
+// w/h = print area size as fraction of image width/height
+
+type GarmentOffset = { x: number; y: number; w: number; h: number };
+
+const GARMENT_OFFSETS: Record<string, GarmentOffset> = {
+  "cc-1717":           { x: 0.2778, y: 0.2213, w: 0.4276, h: 0.6201 },
+  "gildan-hammer":     { x: 0.2896, y: 0.2215, w: 0.4170, h: 0.6376 },
+  "la-apparel-1801gd": { x: 0.3088, y: 0.2403, w: 0.3833, h: 0.6029 },
+  "shaka-wear-shgd":   { x: 0.2942, y: 0.2089, w: 0.4135, h: 0.6993 },
+  "shaka-wear-swds":   { x: 0.3215, y: 0.1926, w: 0.3683, h: 0.7109 },
+};
+
+// Default offsets for products without a garment PNG (flat color fallback).
+// These match the existing centered rect calculation behavior.
+const DEFAULT_GARMENT_OFFSET: GarmentOffset = { x: 0.2, y: 0.15, w: 0.6, h: 0.7 };
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function getImageQuality(dpi: number): ImageQuality {
@@ -186,6 +207,35 @@ function getPrintAreaRect(widthIn: number, heightIn: number) {
   const w = widthIn * INCH_PX;
   const h = heightIn * INCH_PX;
   return { x: (CANVAS_SIZE - w) / 2, y: (CANVAS_SIZE - h) / 2, w, h };
+}
+
+function colorNameToSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+/**
+ * Draws a source image scaled to contain within the destination rect,
+ * preserving aspect ratio, centered. Returns the actual drawn rect so
+ * callers can position overlays precisely on top of the image.
+ */
+function drawContain(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  dx: number,
+  dy: number,
+  dw: number,
+  dh: number,
+): { drawX: number; drawY: number; drawW: number; drawH: number } {
+  const scale = Math.min(dw / img.naturalWidth, dh / img.naturalHeight);
+  const drawW = img.naturalWidth * scale;
+  const drawH = img.naturalHeight * scale;
+  const drawX = dx + (dw - drawW) / 2;
+  const drawY = dy + (dh - drawH) / 2;
+  ctx.drawImage(img, drawX, drawY, drawW, drawH);
+  return { drawX, drawY, drawW, drawH };
 }
 
 /**
@@ -298,6 +348,15 @@ export function MockupEditor({
   onTemplateAnchorPositionChange,
 }: MockupEditorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  // Holds the actual drawn print area rect in canvas CSS-pixel space.
+  // Updated on every canvas redraw so drag handlers always use the correct
+  // bounds even when a garment PNG shifts the rect away from the INCH_PX default.
+  const printAreaRectRef = useRef<{ x: number; y: number; w: number; h: number }>({
+    x: 0,
+    y: 0,
+    w: CANVAS_SIZE * 0.6,
+    h: CANVAS_SIZE * 0.7,
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Mutable drag state — read by window event handlers via ref to avoid
@@ -353,6 +412,8 @@ export function MockupEditor({
     initialIntendedCenter,
   );
 
+  const [garmentImage, setGarmentImage] = useState<HTMLImageElement | null>(null);
+
   // Image quality state — set on load, shown as inline banners / upload modal.
   const [effectiveDPI, setEffectiveDPI] = useState<number | null>(null);
   const [imageQuality, setImageQuality] = useState<ImageQuality | null>(null);
@@ -405,6 +466,12 @@ export function MockupEditor({
 
   // True when artwork is at its maximum size for the print area.
   const isAtSizeCap = artworkImage !== null && relativeScale >= 99;
+
+  // ── Scroll to top on mount so the canvas is immediately visible ────────
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, []);
 
   // ── Restore artwork image on mount when initial data URL is provided ───
 
@@ -467,8 +534,7 @@ export function MockupEditor({
   // ── Recompute maxAllowedScale whenever the image or print area changes ──
 
   useEffect(() => {
-    const pw = selectedPrintArea.widthIn * INCH_PX;
-    const ph = selectedPrintArea.heightIn * INCH_PX;
+    const { w: pw, h: ph } = printAreaRectRef.current;
     const maxScale = artworkNaturalSize
       ? Math.min(pw / artworkNaturalSize.w, ph / artworkNaturalSize.h, 1.5)
       : 1.5;
@@ -478,6 +544,25 @@ export function MockupEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [artworkNaturalSize, selectedPrintArea]);
 
+  // ── Load garment PNG for the current product / color / print area ──────
+
+  useEffect(() => {
+    const selectedColor = product.availableColors.find(
+      (c) => c.hex === selectedColorHex,
+    );
+    if (!selectedColor) {
+      setGarmentImage(null);
+      return;
+    }
+    const slug = colorNameToSlug(selectedColor.name);
+    const areaName = selectedPrintArea.name;
+    const path = `/mockups/${product.id}-${slug}-${areaName}.png`;
+    const img = new Image();
+    img.onload = () => setGarmentImage(img);
+    img.onerror = () => setGarmentImage(null);
+    img.src = path;
+  }, [product.id, product.availableColors, selectedColorHex, selectedPrintArea.name]);
+
   // ── Canvas redraw ───────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -485,14 +570,46 @@ export function MockupEditor({
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
 
-    const { x: rx, y: ry, w: rw, h: rh } = printAreaPx;
-
-    // 1. Background fill
-    ctx.fillStyle = selectedColorHex;
+    // 1. Background — white base so transparent PNG edges are clean
+    ctx.fillStyle = "#FFFFFF";
     ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
 
-    // 2. Print area dashed rectangle — adaptive contrast based on garment color
+    // 2. Garment PNG or flat color fallback, then print area rect
+    const offset = GARMENT_OFFSETS[product.id] ?? DEFAULT_GARMENT_OFFSET;
+    let rx: number, ry: number, rw: number, rh: number;
+
+    if (garmentImage) {
+      // Draw garment PNG contained within canvas, get actual drawn bounds
+      const { drawX, drawY, drawW, drawH } = drawContain(
+        ctx,
+        garmentImage,
+        0,
+        0,
+        CANVAS_SIZE,
+        CANVAS_SIZE,
+      );
+      // Position print area rect using normalized offsets relative to drawn image
+      rx = drawX + offset.x * drawW;
+      ry = drawY + offset.y * drawH;
+      rw = offset.w * drawW;
+      rh = offset.h * drawH;
+    } else {
+      // No PNG — flat color fill with default centered print area
+      ctx.fillStyle = selectedColorHex;
+      ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+      rx = offset.x * CANVAS_SIZE;
+      ry = offset.y * CANVAS_SIZE;
+      rw = offset.w * CANVAS_SIZE;
+      rh = offset.h * CANVAS_SIZE;
+    }
+
+    // Sync the ref so drag handlers use the same rect as the canvas draw.
+    printAreaRectRef.current = { x: rx, y: ry, w: rw, h: rh };
+
+    // Print area dashed rectangle — adaptive contrast
     const r = parseInt(selectedColorHex.slice(1, 3), 16);
     const g = parseInt(selectedColorHex.slice(3, 5), 16);
     const b = parseInt(selectedColorHex.slice(5, 7), 16);
@@ -559,6 +676,7 @@ export function MockupEditor({
     ctx.restore();
   }, [
     selectedColorHex,
+    garmentImage,
     printAreaPx,
     artworkImage,
     artworkNaturalSize,
@@ -587,7 +705,7 @@ export function MockupEditor({
         product.printAreas[sr.selectedPrintAreaIndex] ?? product.printAreas[0];
       if (!area) return;
 
-      const { w: rw, h: rh } = getPrintAreaRect(area.widthIn, area.heightIn);
+      const { w: rw, h: rh } = printAreaRectRef.current;
       if (!sr.artworkNaturalSize) return;
       const aw = sr.artworkNaturalSize.w * sr.artworkScale;
       const ah = sr.artworkNaturalSize.h * sr.artworkScale;
@@ -818,7 +936,7 @@ export function MockupEditor({
     if (!artworkImage || !artworkNaturalSize) return;
     const area = product.printAreas[selectedPrintAreaIndex];
     if (!area) return;
-    const { w: rw, h: rh } = getPrintAreaRect(area.widthIn, area.heightIn);
+    const { w: rw, h: rh } = printAreaRectRef.current;
 
     // Reset to max scale so the artwork fills the new print area, then center it.
     setRelativeScale(100);
@@ -853,7 +971,7 @@ export function MockupEditor({
     const canvasX = (clientX - rect.left) * (CANVAS_SIZE / rect.width);
     const canvasY = (clientY - rect.top) * (CANVAS_SIZE / rect.height);
 
-    const { x: rx, y: ry } = printAreaPx;
+    const { x: rx, y: ry } = printAreaRectRef.current;
     const aw = artworkNaturalSize.w * actualScale;
     const ah = artworkNaturalSize.h * actualScale;
     const artLeft = rx + artworkPosition.x;
@@ -886,7 +1004,7 @@ export function MockupEditor({
           product.printAreas[selectedPrintAreaIndex] ??
           product.printAreas[0] ??
           { widthIn: 12, heightIn: 16 };
-        const { w: rw, h: rh } = getPrintAreaRect(area.widthIn, area.heightIn);
+        const { w: rw, h: rh } = printAreaRectRef.current;
 
         // Normalize to ~85% of print area at scale 1.0 so maxAllowedScale
         // stays near 1.0–1.5 and all position math remains well-behaved.
@@ -973,8 +1091,8 @@ export function MockupEditor({
   function applyTemplate(template: PlacementTemplate) {
     if (!artworkNaturalSize) return;
 
-    const printW = selectedPrintArea.widthIn * INCH_PX;
-    const printH = selectedPrintArea.heightIn * INCH_PX;
+    // Use the actual drawn print area dimensions so position math matches canvas.
+    const { w: printW, h: printH } = printAreaRectRef.current;
 
     // Scale to the template's target width, capped by the print area maximum.
     const targetPx = template.targetWidthIn * INCH_PX;
@@ -1029,7 +1147,7 @@ export function MockupEditor({
 
   function snapToCenter() {
     if (!artworkNaturalSize) return;
-    const { w: rw, h: rh } = printAreaPx;
+    const { w: rw, h: rh } = printAreaRectRef.current;
     const aw = artworkNaturalSize.w * actualScale;
     const ah = artworkNaturalSize.h * actualScale;
     const centeredX = Math.max(0, (rw - aw) / 2);
@@ -1060,7 +1178,7 @@ export function MockupEditor({
     }
 
     const newActualScale = (newRelative / 100) * maxAllowedScale;
-    const { w: rw, h: rh } = printAreaPx;
+    const { w: rw, h: rh } = printAreaRectRef.current;
     const oldDrawW = artworkNaturalSize.w * actualScale;
     const oldDrawH = artworkNaturalSize.h * actualScale;
 
@@ -1190,8 +1308,7 @@ export function MockupEditor({
                 ref={canvasRef}
                 width={CANVAS_SIZE}
                 height={CANVAS_SIZE}
-                className="h-full w-full"
-                style={{ cursor: artworkImage ? "move" : "default" }}
+                style={{ display: "block", width: "100%", height: "auto", cursor: artworkImage ? "move" : "default" }}
                 onMouseDown={(e) => startDrag(e.clientX, e.clientY)}
                 onTouchStart={(e) => {
                   const touch = e.touches[0];
