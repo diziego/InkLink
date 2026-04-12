@@ -110,6 +110,7 @@ export function MerchantCatalogClient({ submittedOrderId, submittedOrder }: Merc
       orderId={submittedOrderId}
       order={submittedOrder}
       mockupSnapshotUrl={mockupSnapshotUrl}
+      cartItems={cartItems}
     />
   );
 
@@ -166,6 +167,7 @@ export function MerchantCatalogClient({ submittedOrderId, submittedOrder }: Merc
             quantity: 24,
           };
           setCartItems((prev) => [...prev, newItem]);
+          setMockupSnapshotUrl(snapshotUrl);
           // Clear mockup state now that the item is in the cart
           setArtworkDataUrl(null);
           setMockupPosition(null);
@@ -729,10 +731,12 @@ function OrderSuccessView({
   orderId: _orderId,
   order,
   mockupSnapshotUrl,
+  cartItems,
 }: {
   orderId: string;
   order: MerchantOrder | null;
   mockupSnapshotUrl: string;
+  cartItems: CartItem[];
 }) {
   const [showDetails, setShowDetails] = useState(false);
 
@@ -770,7 +774,7 @@ function OrderSuccessView({
       {showDetails && (
         <div className="mx-auto mt-10 max-w-xl rounded-xl border border-zinc-200 bg-white shadow-sm">
           {order ? (
-            <OrderSummaryCard order={order} mockupSnapshotUrl={mockupSnapshotUrl} />
+            <OrderSummaryCard order={order} mockupSnapshotUrl={mockupSnapshotUrl} cartItems={cartItems} />
           ) : (
             <div className="p-6 text-center text-sm text-zinc-500">
               Order details unavailable. Check your order history below.
@@ -785,11 +789,14 @@ function OrderSuccessView({
 function OrderSummaryCard({
   order,
   mockupSnapshotUrl,
+  cartItems,
 }: {
   order: MerchantOrder;
   mockupSnapshotUrl: string;
+  cartItems: CartItem[];
 }) {
-  const item = order.items[0];
+  const items = order.items;
+  const item = items[0]; // kept for backward compat with existing single-item fields
 
   const garmentTypeLabels: Record<string, string> = {
     t_shirt: "T-Shirt",
@@ -822,24 +829,7 @@ function OrderSummaryCard({
 
   return (
     <div className="divide-y divide-zinc-100">
-      {mockupSnapshotUrl && (
-        <div className="flex items-center gap-4 border-b border-zinc-100 px-6 py-4">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={mockupSnapshotUrl}
-            alt="Approved mockup"
-            className="h-20 w-20 rounded-lg border border-zinc-200 object-cover shadow-sm"
-          />
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">
-              Approved mockup
-            </p>
-            <p className="mt-1 text-xs font-medium text-emerald-700">
-              ✓ Design approved
-            </p>
-          </div>
-        </div>
-      )}
+
       <div className="px-6 py-4">
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">
           Order details
@@ -878,46 +868,63 @@ function OrderSummaryCard({
         </div>
       </div>
 
-      {item && (
+      {items.length > 0 && (
         <div className="px-6 py-4">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">
-            Item
+            {items.length === 1 ? "Item" : `Items (${items.length})`}
           </p>
-          <div className="mt-3 grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-xs text-zinc-400">Garment</p>
-              <p className="mt-0.5 text-sm font-medium text-zinc-950">
-                {garmentTypeLabels[item.garmentType] ?? item.garmentType}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-zinc-400">Quantity</p>
-              <p className="mt-0.5 text-sm font-medium text-zinc-950">
-                {item.quantity} units
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-zinc-400">Print method</p>
-              <p className="mt-0.5 text-sm font-medium text-zinc-950">
-                {item.printMethod?.toUpperCase() ?? "DTG"}
-              </p>
-            </div>
-            {item.preferredBlankBrand && (
-              <div>
-                <p className="text-xs text-zinc-400">Blank brand</p>
-                <p className="mt-0.5 text-sm font-medium text-zinc-950">
-                  {item.preferredBlankBrand}
-                </p>
+          <div className="mt-3 flex flex-col gap-4">
+            {items.map((orderItem, i) => (
+              <div key={orderItem.id || i} className="grid grid-cols-2 gap-3 rounded-lg border border-zinc-100 bg-zinc-50 p-3">
+                {(() => {
+                  const snap = cartItems[i]?.mockupSnapshotUrl || (i === 0 ? mockupSnapshotUrl : null);
+                  return snap ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={snap}
+                      alt="Approved mockup"
+                      className="col-span-2 h-16 w-16 rounded-md border border-zinc-200 object-cover shadow-sm"
+                    />
+                  ) : (
+                    <div className="col-span-2 h-16 w-16 rounded-md border border-zinc-200 bg-zinc-200" />
+                  );
+                })()}
+                <div>
+                  <p className="text-xs text-zinc-400">Garment</p>
+                  <p className="mt-0.5 text-sm font-medium text-zinc-950">
+                    {garmentTypeLabels[orderItem.garmentType] ?? orderItem.garmentType}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-zinc-400">Quantity</p>
+                  <p className="mt-0.5 text-sm font-medium text-zinc-950">
+                    {orderItem.quantity} units
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-zinc-400">Print method</p>
+                  <p className="mt-0.5 text-sm font-medium text-zinc-950">
+                    {orderItem.printMethod?.toUpperCase() ?? "DTG"}
+                  </p>
+                </div>
+                {orderItem.preferredBlankBrand && (
+                  <div>
+                    <p className="text-xs text-zinc-400">Blank brand</p>
+                    <p className="mt-0.5 text-sm font-medium text-zinc-950">
+                      {orderItem.preferredBlankBrand}
+                    </p>
+                  </div>
+                )}
+                {orderItem.preferredBlankStyle && (
+                  <div className="col-span-2">
+                    <p className="text-xs text-zinc-400">Blank style</p>
+                    <p className="mt-0.5 text-sm font-medium text-zinc-950">
+                      {orderItem.preferredBlankStyle}
+                    </p>
+                  </div>
+                )}
               </div>
-            )}
-            {item.preferredBlankStyle && (
-              <div className="col-span-2">
-                <p className="text-xs text-zinc-400">Blank style</p>
-                <p className="mt-0.5 text-sm font-medium text-zinc-950">
-                  {item.preferredBlankStyle}
-                </p>
-              </div>
-            )}
+            ))}
           </div>
         </div>
       )}
