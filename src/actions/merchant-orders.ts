@@ -2,7 +2,8 @@
 
 import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth/helpers";
-import { assignTopProviders, saveMerchantOrder } from "@/lib/merchant/orders";
+import { assignTopProviders, saveMerchantOrder, saveCartOrder } from "@/lib/merchant/orders";
+import type { SaveCartOrderInput } from "@/lib/merchant/orders";
 import {
   hasSupabaseBrowserEnv,
   hasSupabaseServiceRoleEnv,
@@ -85,6 +86,80 @@ export async function submitMerchantOrderAction(formData: FormData) {
   // Auto-assign top 3 providers from routing. Fire-and-forget style:
   // if no providers are configured the function exits silently.
   await assignTopProviders(orderId, orderInput);
+
+  redirect(`/merchant?orderId=${orderId}`);
+}
+
+export async function submitCartAction(formData: FormData) {
+  if (!hasSupabaseBrowserEnv() || !hasSupabaseServiceRoleEnv()) {
+    redirect("/merchant");
+  }
+
+  const user = await requireRole("merchant");
+
+  const fulfillmentZip = String(formData.get("fulfillmentZip") ?? "").trim();
+  const rawGoal = String(formData.get("fulfillmentGoal") ?? "");
+  const localPickupValues = formData.getAll("localPickupPreferred");
+  const localPickupPreferred = localPickupValues.includes("true");
+
+  const fulfillmentGoal = validFulfillmentGoals.includes(rawGoal as FulfillmentGoal)
+    ? (rawGoal as FulfillmentGoal)
+    : "local_first";
+
+  // Cart items are serialized as JSON in a hidden field
+  let rawItems: Array<{
+    garmentType: string;
+    preferredBlankBrand: string;
+    preferredBlankStyle: string;
+  }> = [];
+  try {
+    rawItems = JSON.parse(String(formData.get("cartItemsJson") ?? "[]"));
+  } catch {
+    rawItems = [];
+  }
+
+  if (rawItems.length === 0) {
+    redirect("/merchant");
+  }
+
+  // Quantities come from individual named inputs quantity_0, quantity_1, …
+  const items: SaveCartOrderInput["items"] = rawItems.map((item, i) => {
+    const rawQty = Number.parseInt(
+      String(formData.get(`quantity_${i}`) ?? "24"),
+      10,
+    );
+    const quantity = Number.isNaN(rawQty) ? 24 : Math.max(1, Math.min(rawQty, 500));
+    const garmentType = validGarmentTypes.includes(item.garmentType as GarmentType)
+      ? (item.garmentType as GarmentType)
+      : "t_shirt";
+    return {
+      garmentType,
+      quantity,
+      preferredBlankBrand: item.preferredBlankBrand,
+      preferredBlankStyle: item.preferredBlankStyle,
+    };
+  });
+
+  const orderId = await saveCartOrder(user.id, {
+    fulfillmentZip: fulfillmentZip || "00000",
+    fulfillmentGoal,
+    localPickupPreferred,
+    items,
+  });
+
+  // Route using the first item for now
+  const firstItem = items[0];
+  if (firstItem) {
+    await assignTopProviders(orderId, {
+      fulfillmentZip: fulfillmentZip || "00000",
+      fulfillmentGoal,
+      localPickupPreferred,
+      garmentType: firstItem.garmentType,
+      quantity: firstItem.quantity,
+      preferredBlankBrand: firstItem.preferredBlankBrand,
+      preferredBlankStyle: firstItem.preferredBlankStyle,
+    });
+  }
 
   redirect(`/merchant?orderId=${orderId}`);
 }

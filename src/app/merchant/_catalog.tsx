@@ -9,11 +9,23 @@ import type {
   CatalogProduct,
   GarmentType as CatalogGarmentType,
 } from "@/lib/catalog/products";
-import { submitMerchantOrderAction } from "@/actions/merchant-orders";
+import { submitCartAction } from "@/actions/merchant-orders";
 import { MockupEditor } from "./_mockup";
 import type { FulfillmentGoal, MerchantOrder } from "@/types";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
+
+// A single approved design item waiting in the cart.
+type CartItem = {
+  id: string;
+  product: CatalogProduct;
+  artworkDataUrl: string | null;
+  mockupSnapshotUrl: string;
+  selectedColorHex: string;
+  printAreaName: string;
+  templateLabel: string | null;
+  quantity: number;
+};
 
 type CatalogTab = "all" | CatalogGarmentType;
 
@@ -45,7 +57,7 @@ const formInput =
 
 // ─── Main export ─────────────────────────────────────────────────────────────
 
-type ViewState = "catalog" | "mockup" | "order";
+type ViewState = "catalog" | "mockup" | "cart" | "checkout";
 
 export type MerchantCatalogClientProps = {
   blankBrandOptions: string[];
@@ -59,6 +71,7 @@ export function MerchantCatalogClient({ submittedOrderId, submittedOrder }: Merc
   const [activeTab, setActiveTab] = useState<CatalogTab>("all");
   const [selectedProduct, setSelectedProduct] =
     useState<CatalogProduct | null>(null);
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
   // Lifted mockup state — persisted across back-navigation
   const [artworkDataUrl, setArtworkDataUrl] = useState<string | null>(null);
@@ -122,9 +135,7 @@ export function MerchantCatalogClient({ submittedOrderId, submittedOrder }: Merc
         onIntendedCenterChange={setMockupIntendedCenter}
         onTemplateAnchorPositionChange={setMockupTemplateAnchorPosition}
         onBack={() => {
-          // Back to catalog — clear all mockup state
-          setView("catalog");
-          setSelectedProduct(null);
+          // Clear mockup state for the abandoned item
           setArtworkDataUrl(null);
           setMockupPosition(null);
           setMockupRelativeScale(100);
@@ -133,29 +144,71 @@ export function MerchantCatalogClient({ submittedOrderId, submittedOrder }: Merc
           setMockupActiveTemplateId(null);
           setMockupIntendedCenter(null);
           setMockupTemplateAnchorPosition(null);
+          setSelectedProduct(null);
+          // If cart has items, return to cart; otherwise go to catalog
+          if (cartItems.length > 0) {
+            setView("cart");
+          } else {
+            setView("catalog");
+          }
         }}
         onApprove={(dataUrl, snapshotUrl, printAreaName, templateLabel) => {
-          setArtworkDataUrl(dataUrl);
-          setMockupSnapshotUrl(snapshotUrl);
-          setSelectedPrintAreaName(printAreaName);
-          setSelectedTemplateLabel(templateLabel);
-          setView("order");
+          if (!selectedProduct) return;
+          const newItem: CartItem = {
+            id: Date.now().toString(),
+            product: selectedProduct,
+            artworkDataUrl: dataUrl,
+            mockupSnapshotUrl: snapshotUrl,
+            selectedColorHex:
+              mockupColorHex ?? selectedProduct.availableColors[0]?.hex ?? "#000000",
+            printAreaName,
+            templateLabel,
+            quantity: 24,
+          };
+          setCartItems((prev) => [...prev, newItem]);
+          // Clear mockup state now that the item is in the cart
+          setArtworkDataUrl(null);
+          setMockupPosition(null);
+          setMockupRelativeScale(100);
+          setMockupColorHex(null);
+          setMockupPrintAreaIndex(0);
+          setMockupActiveTemplateId(null);
+          setMockupIntendedCenter(null);
+          setMockupTemplateAnchorPosition(null);
+          setSelectedProduct(null);
+          setView("cart");
         }}
       />
     );
   }
 
-  // ── View C: Order form ────────────────────────────────────────────────
-  if (view === "order" && selectedProduct) {
+  // ── View C: Cart ──────────────────────────────────────────────────────
+  if (view === "cart") {
     return (
-      <OrderFormView
-        product={selectedProduct}
-        artworkDataUrl={artworkDataUrl}
-        selectedColorHex={mockupColorHex}
-        mockupSnapshotUrl={mockupSnapshotUrl}
-        printAreaName={selectedPrintAreaName}
-        templateLabel={selectedTemplateLabel}
-        onBack={() => setView("mockup")}
+      <CartView
+        cartItems={cartItems}
+        onUpdateQuantity={(id, quantity) =>
+          setCartItems((prev) =>
+            prev.map((item) => (item.id === id ? { ...item, quantity } : item)),
+          )
+        }
+        onRemoveItem={(id) =>
+          setCartItems((prev) => prev.filter((item) => item.id !== id))
+        }
+        onAddAnother={() => {
+          setView("catalog");
+        }}
+        onCheckout={() => setView("checkout")}
+      />
+    );
+  }
+
+  // ── View D: Checkout ──────────────────────────────────────────────────
+  if (view === "checkout") {
+    return (
+      <CheckoutView
+        cartItems={cartItems}
+        onBack={() => setView("cart")}
       />
     );
   }
@@ -294,30 +347,206 @@ function ProductCard({
   );
 }
 
-// ─── View C: Order form ───────────────────────────────────────────────────────
+// ─── View C: Cart ─────────────────────────────────────────────────────────────
 
-function OrderFormView({
-  product,
-  artworkDataUrl,
-  selectedColorHex,
-  mockupSnapshotUrl,
-  printAreaName,
-  templateLabel,
+function CartView({
+  cartItems,
+  onUpdateQuantity,
+  onRemoveItem,
+  onAddAnother,
+  onCheckout,
+}: {
+  cartItems: CartItem[];
+  onUpdateQuantity: (id: string, quantity: number) => void;
+  onRemoveItem: (id: string) => void;
+  onAddAnother: () => void;
+  onCheckout: () => void;
+}) {
+  const totalPieces = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+
+  return (
+    <section className="py-12">
+      <p className="text-sm font-medium uppercase tracking-[0.2em] text-zinc-500">
+        Your cart
+      </p>
+      <h2 className="mt-2 text-3xl font-semibold text-zinc-950">
+        {cartItems.length} {cartItems.length === 1 ? "item" : "items"}
+      </h2>
+
+      <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_300px] lg:items-start">
+        {/* Left: item list */}
+        <div className="flex flex-col gap-4">
+          {cartItems.map((item) => (
+            <CartItemCard
+              key={item.id}
+              item={item}
+              onUpdateQuantity={onUpdateQuantity}
+              onRemove={onRemoveItem}
+            />
+          ))}
+
+          {/* Add another item */}
+          <button
+            type="button"
+            onClick={onAddAnother}
+            className="flex h-20 w-full items-center justify-center rounded-xl border-2 border-dashed border-zinc-300 text-sm font-medium text-zinc-500 transition hover:border-zinc-400 hover:text-zinc-700"
+          >
+            + Add another item
+          </button>
+        </div>
+
+        {/* Right: order summary */}
+        <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">
+            Order summary
+          </p>
+
+          <div className="mt-4 space-y-2">
+            {cartItems.map((item) => {
+              const colorName =
+                item.product.availableColors.find(
+                  (c) => c.hex === item.selectedColorHex,
+                )?.name ?? "—";
+              return (
+                <div key={item.id} className="flex items-start justify-between gap-2 text-sm">
+                  <span className="text-zinc-600 leading-5">
+                    {item.product.brand} {item.product.name}
+                    <br />
+                    <span className="text-xs text-zinc-400">{colorName}</span>
+                  </span>
+                  <span className="shrink-0 font-semibold text-zinc-950">
+                    {item.quantity} pcs
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="mt-4 border-t border-zinc-100 pt-4">
+            <div className="flex justify-between text-sm font-semibold text-zinc-950">
+              <span>Total pieces</span>
+              <span>{totalPieces}</span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={onCheckout}
+            className="mt-5 h-11 w-full rounded-md bg-zinc-950 text-sm font-semibold text-white transition hover:bg-zinc-800 active:bg-zinc-700"
+          >
+            Checkout →
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CartItemCard({
+  item,
+  onUpdateQuantity,
+  onRemove,
+}: {
+  item: CartItem;
+  onUpdateQuantity: (id: string, quantity: number) => void;
+  onRemove: (id: string) => void;
+}) {
+  const colorName =
+    item.product.availableColors.find((c) => c.hex === item.selectedColorHex)
+      ?.name ?? item.selectedColorHex;
+
+  return (
+    <div className="flex gap-4 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+      {/* Thumbnail */}
+      {item.mockupSnapshotUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={item.mockupSnapshotUrl}
+          alt={item.product.name}
+          className="h-20 w-20 shrink-0 rounded-lg border border-zinc-200 object-cover shadow-sm"
+        />
+      ) : (
+        <div
+          className="h-20 w-20 shrink-0 rounded-lg border border-zinc-200"
+          style={{ backgroundColor: item.selectedColorHex }}
+        />
+      )}
+
+      {/* Details */}
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">
+          {item.product.brand}
+        </p>
+        <p className="mt-0.5 text-sm font-semibold text-zinc-950">
+          {item.product.name}
+        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+          <span
+            className="h-3.5 w-3.5 shrink-0 rounded-full border border-black/10"
+            style={{ backgroundColor: item.selectedColorHex }}
+          />
+          <span className="text-xs text-zinc-500">{colorName}</span>
+          <span className="text-xs text-zinc-300">·</span>
+          <span className="text-xs capitalize text-zinc-500">
+            {item.printAreaName.replace(/_/g, " ")} print
+          </span>
+        </div>
+        <p className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+          ✓ Design approved
+        </p>
+      </div>
+
+      {/* Quantity + remove */}
+      <div className="flex shrink-0 flex-col items-end justify-between">
+        <button
+          type="button"
+          onClick={() => onRemove(item.id)}
+          className="text-xs text-zinc-400 transition hover:text-red-500"
+        >
+          Remove
+        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() =>
+              onUpdateQuantity(item.id, Math.max(1, item.quantity - 1))
+            }
+            className="flex h-7 w-7 items-center justify-center rounded-md border border-zinc-200 text-sm font-medium text-zinc-600 transition hover:bg-zinc-50"
+          >
+            −
+          </button>
+          <span className="w-8 text-center text-sm font-semibold text-zinc-950">
+            {item.quantity}
+          </span>
+          <button
+            type="button"
+            onClick={() =>
+              onUpdateQuantity(item.id, Math.min(500, item.quantity + 1))
+            }
+            className="flex h-7 w-7 items-center justify-center rounded-md border border-zinc-200 text-sm font-medium text-zinc-600 transition hover:bg-zinc-50"
+          >
+            +
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── View D: Checkout ─────────────────────────────────────────────────────────
+
+function CheckoutView({
+  cartItems,
   onBack,
 }: {
-  product: CatalogProduct;
-  artworkDataUrl: string | null;
-  selectedColorHex: string | null;
-  mockupSnapshotUrl: string;
-  printAreaName: string;
-  templateLabel: string | null;
+  cartItems: CartItem[];
   onBack: () => void;
 }) {
-  const routingGarmentType = CATALOG_TO_ROUTING_GARMENT[product.garmentType];
-  const resolvedColorHex = selectedColorHex ?? product.availableColors[0]?.hex ?? "#000000";
-  const colorName =
-    product.availableColors.find((c) => c.hex === resolvedColorHex)?.name ??
-    resolvedColorHex;
+  const cartItemsForSubmit = cartItems.map((item) => ({
+    garmentType: CATALOG_TO_ROUTING_GARMENT[item.product.garmentType],
+    preferredBlankBrand: item.product.brand,
+    preferredBlankStyle: `${item.product.sku} ${item.product.name}`,
+  }));
 
   return (
     <section className="py-12">
@@ -326,183 +555,173 @@ function OrderFormView({
         onClick={onBack}
         className="mb-8 flex items-center gap-1.5 text-sm font-medium text-zinc-500 transition hover:text-zinc-950"
       >
-        ← Back to mockup
+        ← Back to cart
       </button>
 
-      <div className="grid gap-8 lg:grid-cols-[1fr_1.5fr] lg:items-start">
-        {/* Left: product summary */}
-        <ProductSummaryCard product={product} printAreaName={printAreaName} />
+      <div className="mb-6">
+        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-500">
+          Checkout
+        </p>
+        <h2 className="mt-2 text-2xl font-semibold text-zinc-950">
+          Review &amp; place order
+        </h2>
+        <p className="mt-2 text-sm leading-6 text-zinc-600">
+          Confirm quantities and fulfillment details. Your order will be routed
+          to top-matched local providers.
+        </p>
+      </div>
 
-        {/* Right: order form */}
-        <form
-          action={submitMerchantOrderAction}
-          className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm"
-        >
-          {/* Mockup snapshot preview */}
-          {mockupSnapshotUrl && (
-            <div className="mb-6 flex gap-4 items-start rounded-xl border-2 border-zinc-950 bg-white p-4 shadow-sm">
-              <img
-                src={mockupSnapshotUrl}
-                alt="Your approved mockup"
-                className="w-24 h-24 rounded-lg object-cover border border-zinc-200 shadow-sm"
-              />
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-zinc-950">
-                  Approved mockup
-                </p>
-                <p className="mt-1 text-sm text-zinc-700">
-                  {product.brand} {product.name}
-                </p>
-                <p className="mt-0.5 text-xs text-zinc-500">{product.sku}</p>
-                {printAreaName && (
-                  <p className="mt-1 text-xs text-zinc-500 capitalize">
-                    {printAreaName.replace(/_/g, " ")} print area
-                  </p>
-                )}
-                {templateLabel && (
-                  <p className="mt-0.5 text-xs text-zinc-500">{templateLabel}</p>
-                )}
-                <p className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">
-                  ✓ Design approved
-                </p>
-              </div>
+      <form
+        action={submitCartAction}
+        className="grid gap-8 lg:grid-cols-[1.5fr_1fr] lg:items-start"
+      >
+        {/* Serialize cart for server action */}
+        <input
+          type="hidden"
+          name="cartItemsJson"
+          value={JSON.stringify(cartItemsForSubmit)}
+        />
+
+        {/* Left: items + fulfillment */}
+        <div className="flex flex-col gap-6">
+          {/* Items list */}
+          <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">
+              Items ({cartItems.length})
+            </p>
+            <div className="mt-4 flex flex-col gap-4">
+              {cartItems.map((item, i) => {
+                const colorName =
+                  item.product.availableColors.find(
+                    (c) => c.hex === item.selectedColorHex,
+                  )?.name ?? "—";
+                return (
+                  <div
+                    key={item.id}
+                    className="flex items-center gap-4 rounded-lg border border-zinc-100 bg-zinc-50 p-3"
+                  >
+                    {item.mockupSnapshotUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={item.mockupSnapshotUrl}
+                        alt={item.product.name}
+                        className="h-14 w-14 shrink-0 rounded-md border border-zinc-200 object-cover"
+                      />
+                    ) : (
+                      <div
+                        className="h-14 w-14 shrink-0 rounded-md border border-zinc-200"
+                        style={{ backgroundColor: item.selectedColorHex }}
+                      />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-zinc-950">
+                        {item.product.brand} {item.product.name}
+                      </p>
+                      <p className="mt-0.5 text-xs text-zinc-500">
+                        {colorName} · {item.printAreaName.replace(/_/g, " ")} print
+                      </p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="text-xs text-zinc-500 mb-1">Qty</p>
+                      <input
+                        type="number"
+                        name={`quantity_${i}`}
+                        min="1"
+                        max="500"
+                        defaultValue={item.quantity}
+                        className="w-20 rounded-md border border-zinc-300 bg-white px-2 py-1 text-center text-sm font-semibold text-zinc-950 outline-none focus:border-zinc-950 focus:ring-2 focus:ring-zinc-950/10"
+                      />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          )}
-
-          {/* Hidden inputs for print area and template */}
-          <input type="hidden" name="printAreaName" value={printAreaName} />
-          {templateLabel && (
-            <input type="hidden" name="templateLabel" value={templateLabel} />
-          )}
-
-          <div className="mb-6">
-            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-500">
-              Order details
-            </p>
-            <h2 className="mt-2 text-2xl font-semibold text-zinc-950">
-              Configure your order
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-zinc-600">
-              Submitting saves the order and routes it to your verified local
-              providers.
-            </p>
           </div>
 
-          {/* Garment type passed to action as routing-compatible value */}
-          <input type="hidden" name="garmentType" value={routingGarmentType} />
-          <input type="hidden" name="garmentColor" value={resolvedColorHex} />
+          {/* Fulfillment details */}
+          <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">
+              Fulfillment
+            </p>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <label className={formLabel}>
+                Fulfillment goal
+                <select
+                  name="fulfillmentGoal"
+                  defaultValue="local_first"
+                  className={formInput}
+                >
+                  {FULFILLMENT_GOAL_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            {/* Garment type display (read-only) */}
-            <div>
-              <p className={formLabel}>Garment type</p>
-              <div className="mt-2 flex h-11 items-center gap-2">
-                <span className="inline-flex items-center rounded-md border border-zinc-200 bg-zinc-100 px-3 py-1.5 text-sm font-medium text-zinc-700">
-                  {product.brand} {product.name}
+              <label className={formLabel}>
+                Fulfillment ZIP
+                <input
+                  name="fulfillmentZip"
+                  inputMode="numeric"
+                  placeholder="e.g. 90401"
+                  className={formInput}
+                />
+              </label>
+            </div>
+
+            <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-700">
+              <input type="hidden" name="localPickupPreferred" value="false" />
+              <input
+                type="checkbox"
+                name="localPickupPreferred"
+                value="true"
+                className="mt-1 h-4 w-4 accent-zinc-950"
+              />
+              <span>Prefer local pickup when a provider supports it</span>
+            </label>
+          </div>
+        </div>
+
+        {/* Right: submit panel */}
+        <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm lg:sticky lg:top-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">
+            Order total
+          </p>
+          <div className="mt-3 space-y-1.5">
+            {cartItems.map((item) => (
+              <div key={item.id} className="flex justify-between text-sm">
+                <span className="text-zinc-600">
+                  {item.product.name}
+                </span>
+                <span className="font-medium text-zinc-950">
+                  {item.quantity} pcs
                 </span>
               </div>
-            </div>
-
-            {/* Garment color display (read-only) */}
-            <div>
-              <p className={formLabel}>Garment color</p>
-              <div className="mt-2 flex h-11 items-center rounded-md border border-zinc-200 bg-zinc-100 px-3 py-2.5 gap-2">
-                <span
-                  className="h-5 w-5 shrink-0 rounded-full border border-black/10"
-                  style={{ backgroundColor: resolvedColorHex }}
-                />
-                <span className="text-sm text-zinc-600">{colorName}</span>
-              </div>
-            </div>
-
-            {/* Fulfillment goal */}
-            <label className={formLabel}>
-              Fulfillment goal
-              <select
-                name="fulfillmentGoal"
-                defaultValue="local_first"
-                className={formInput}
-              >
-                {FULFILLMENT_GOAL_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            {/* Fulfillment ZIP */}
-            <label className={formLabel}>
-              Fulfillment ZIP
-              <input
-                name="fulfillmentZip"
-                inputMode="numeric"
-                placeholder="e.g. 90401"
-                className={formInput}
-              />
-            </label>
-
-            {/* Quantity */}
-            <label className={formLabel}>
-              Quantity
-              <input
-                name="quantity"
-                type="number"
-                min="1"
-                max="500"
-                defaultValue={24}
-                className={formInput}
-              />
-            </label>
-
-            {/* Preferred blank brand — locked to selected product */}
-            <label className={formLabel}>
-              Preferred blank brand
-              <input
-                name="preferredBlankBrand"
-                readOnly
-                value={product.brand}
-                className="mt-2 h-11 w-full rounded-md border border-zinc-200 bg-zinc-100 px-3 text-sm text-zinc-500 outline-none cursor-not-allowed"
-              />
-              <p className="mt-1 text-xs text-zinc-400">Set by selected product</p>
-            </label>
-
-            {/* Preferred blank style — locked to selected product */}
-            <label className={`${formLabel} sm:col-span-2`}>
-              Preferred blank style
-              <input
-                name="preferredBlankStyle"
-                readOnly
-                value={`${product.sku} ${product.name}`}
-                className="mt-2 h-11 w-full rounded-md border border-zinc-200 bg-zinc-100 px-3 text-sm text-zinc-500 outline-none cursor-not-allowed"
-              />
-              <p className="mt-1 text-xs text-zinc-400">Set by selected product</p>
-            </label>
+            ))}
           </div>
-
-          {/* Local pickup checkbox */}
-          <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-700">
-            <input type="hidden" name="localPickupPreferred" value="false" />
-            <input
-              type="checkbox"
-              name="localPickupPreferred"
-              value="true"
-              className="mt-1 h-4 w-4 accent-zinc-950"
-            />
-            <span>Prefer local pickup when a provider supports it</span>
-          </label>
-
+          <div className="mt-4 border-t border-zinc-100 pt-4">
+            <div className="flex justify-between text-sm font-semibold text-zinc-950">
+              <span>Total pieces</span>
+              <span>{cartItems.reduce((s, i) => s + i.quantity, 0)}</span>
+            </div>
+          </div>
           <button
             type="submit"
-            className="mt-6 h-11 rounded-md bg-zinc-950 px-8 text-sm font-semibold text-white transition hover:bg-zinc-800 active:bg-zinc-700"
+            className="mt-5 h-11 w-full rounded-md bg-zinc-950 text-sm font-semibold text-white transition hover:bg-zinc-800 active:bg-zinc-700"
           >
-            Save order &amp; route →
+            Place order &amp; route →
           </button>
-        </form>
-      </div>
+          <p className="mt-3 text-xs leading-5 text-zinc-500">
+            Your order will be routed to top-matched local providers after
+            submission.
+          </p>
+        </div>
+      </form>
     </section>
   );
 }
+
 
 // ─── Order success view ───────────────────────────────────────────────────────
 

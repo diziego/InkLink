@@ -23,6 +23,20 @@ export type SaveOrderInput = {
   preferredBlankStyle: string;
 };
 
+export type CartItemInput = {
+  garmentType: GarmentType;
+  quantity: number;
+  preferredBlankBrand: string;
+  preferredBlankStyle: string;
+};
+
+export type SaveCartOrderInput = {
+  fulfillmentZip: string;
+  fulfillmentGoal: FulfillmentGoal;
+  localPickupPreferred: boolean;
+  items: CartItemInput[];
+};
+
 export type MerchantOrderSummary = {
   id: string;
   status: string;
@@ -77,6 +91,50 @@ export async function saveMerchantOrder(
   if (itemError) {
     throw new Error(itemError.message);
   }
+
+  return orderRow.id;
+}
+
+export async function saveCartOrder(
+  profileId: string,
+  input: SaveCartOrderInput,
+): Promise<string> {
+  const supabase = createSupabaseServiceRoleClient();
+
+  const orderInsertResult = await (supabase.from("merchant_orders") as any)
+    .insert({
+      profile_id: profileId,
+      status: "draft",
+      fulfillment_zip: input.fulfillmentZip || "00000",
+      fulfillment_goal: input.fulfillmentGoal,
+      local_pickup_preferred: input.localPickupPreferred,
+    })
+    .select("id")
+    .single();
+  const orderRow = orderInsertResult.data as { id: string } | null;
+  const orderError = orderInsertResult.error as { message: string } | null;
+  if (orderError || !orderRow) {
+    throw new Error(orderError?.message ?? "Failed to save cart order");
+  }
+
+  const itemRows = input.items.map((item) => ({
+    merchant_order_id: orderRow.id,
+    print_method: "dtg",
+    garment_type: item.garmentType,
+    quantity: Math.max(1, Math.min(item.quantity, 500)),
+    preferred_blank_brand: item.preferredBlankBrand || null,
+    preferred_blank_style: item.preferredBlankStyle || null,
+    sizes: {
+      M: Math.ceil(item.quantity / 2),
+      L: Math.floor(item.quantity / 2),
+    } as Json,
+    color: "",
+  }));
+
+  const itemInsertResult = await (supabase.from("merchant_order_items") as any)
+    .insert(itemRows);
+  const itemError = itemInsertResult.error as { message: string } | null;
+  if (itemError) throw new Error(itemError.message);
 
   return orderRow.id;
 }
