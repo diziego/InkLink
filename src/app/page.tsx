@@ -28,15 +28,15 @@ const merchantBenefits = [
 ];
 
 const providerBenefits = [
-  "Receive work that fits your print methods and shop capacity.",
-  "Show merchants where your quality, speed, and specialties stand out.",
-  "Build a local fulfillment reputation beyond commodity print-on-demand.",
+  "From independent home studios to full production floors, there is room in the network for providers with real quality and dependable turnaround.",
+  "Strict onboarding helps merchants trust the network, and that trust can turn into steady repeat work.",
+  "Grow from side income to a real print business as your equipment, capacity, and reputation build.",
 ];
 
 const proofPoints = [
   { label: "Routing", value: "Transparent" },
-  { label: "Print method", value: "DTG first" },
-  { label: "Market", value: "Southern California" },
+  { label: "Print methods", value: "DTG · DTF · HTV · Sublimation" },
+  { label: "Providers", value: "Home studio to shop floor" },
 ];
 
 export default function Home() {
@@ -53,7 +53,7 @@ export default function Home() {
 
           <div className="max-w-3xl py-10">
             <p className="mb-5 inline-flex rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm font-medium uppercase tracking-[0.2em] text-red-400">
-              DTG first. Local by default.
+              DTG at the core. Every print method. Strictly vetted.
             </p>
             <h1 className="text-5xl font-bold text-white sm:text-6xl lg:text-7xl">
               {BRAND.tagline}
@@ -138,11 +138,81 @@ export default function Home() {
           />
           <BenefitPanel
             eyebrow="For providers"
-            title="Local demand that fits your equipment and standards."
+            title="Built for serious independent operators and established shops alike."
             benefits={providerBenefits}
             href="/provider"
             cta="Join as a provider"
           />
+        </div>
+      </section>
+
+      {/* Spectrum */}
+      <section className="bg-zinc-950 px-6 py-20 text-white sm:px-10 lg:px-16">
+        <div className="mx-auto max-w-6xl">
+          <div className="mb-12 max-w-2xl">
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-red-400">
+              The full print spectrum
+            </p>
+            <h2 className="mt-4 text-3xl font-bold sm:text-4xl">
+              From independent home studios to established shop floors — strictly vetted at every level.
+            </h2>
+            <p className="mt-5 text-base leading-7 text-zinc-300">
+              PrintPair is built on a simple belief: talented print operators should have a real path to growth. Some start with DTG, DTF, HTV, sublimation, or small-batch screen printing from a home studio or garage setup. Others already run established production floors. PrintPair helps connect both ends of that spectrum with brands that need the right partner for the job.
+            </p>
+          </div>
+
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              {
+                label: "Solo operator",
+                methods: "DTG · DTF · HTV · Sublimation",
+                description:
+                  "A lean home studio or garage setup built for quick turnarounds, lower minimums, and fast local small-batch work.",
+              },
+              {
+                label: "Growing studio",
+                methods: "DTG · DTF · HTV · Screen print",
+                description:
+                  "A dedicated workspace with growing equipment, stronger workflow, and the capacity to take on consistent brand work across multiple methods.",
+              },
+              {
+                label: "Established shop",
+                methods: "DTG · Screen print · Embroidery",
+                description:
+                  "A full production floor with multiple presses, quality systems, and the throughput to handle high-volume brand runs.",
+              },
+              {
+                label: "Large facility",
+                methods: "All methods · Bulk · Local pickup",
+                description:
+                  "Enterprise-scale production with warehouse space, bulk blank sourcing, and local pickup infrastructure for bigger brand partners.",
+              },
+            ].map((tier) => (
+              <div
+                key={tier.label}
+                className="rounded-xl border border-white/10 bg-white/5 p-6"
+              >
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-red-400">
+                  {tier.methods}
+                </p>
+                <h3 className="mt-3 text-lg font-semibold text-white">
+                  {tier.label}
+                </h3>
+                <p className="mt-2 text-sm leading-6 text-zinc-400">
+                  {tier.description}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-10 rounded-xl border border-white/10 bg-white/5 p-6 sm:p-8">
+            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-red-400">
+              The quality guarantee
+            </p>
+            <p className="mt-3 max-w-3xl text-base leading-7 text-zinc-300">
+              Every provider, regardless of size, goes through strict onboarding. Samples are reviewed, capabilities are verified, capacity is confirmed, and expectations are set early. Entry is earned, and staying in the network means delivering consistent quality.
+            </p>
+          </div>
         </div>
       </section>
 
@@ -159,10 +229,7 @@ export default function Home() {
             </h2>
             <div>
               <p className="text-base leading-7 text-zinc-300">
-                PrintPair starts with DTG and is designed to expand into DTF,
-                screen print, embroidery, heat transfer, local courier options,
-                and split routing. The platform is built to grow alongside your
-                fulfillment needs.
+                From a solo HTV operator in a garage to a full DTG facility across town — PrintPair routes your order to the right provider at the right scale. Local pickup for bulkier runs. Split routing for mixed orders. The platform is built to grow alongside every brand that uses it.
               </p>
               <Link
                 href="/login"
