@@ -18,9 +18,9 @@ import {
 import { formatValue } from "@/lib/format";
 
 export const metadata: Metadata = {
-  title: "Admin | InkLink",
+  title: "Admin | PrintPair",
   description:
-    "Review live provider applications, capabilities, wholesale readiness, and admin decisions for InkLink.",
+    "Review live provider applications, capabilities, wholesale readiness, and admin decisions for PrintPair.",
 };
 
 type AdminPageProps = {

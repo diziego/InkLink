@@ -54,8 +54,8 @@ export const mockProfiles = [
   {
     id: "profile-admin-ops",
     role: "admin",
-    displayName: "InkLink Ops",
-    email: "ops@inklink.example",
+    displayName: "PrintPair Ops",
+    email: "ops@print-pair.com",
     createdAt: "2026-02-01T18:00:00.000Z",
   },
 ] satisfies Profile[];

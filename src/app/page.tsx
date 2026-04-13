@@ -7,7 +7,7 @@ const howItWorksSteps = [
   {
     step: "01",
     title: "Post an order",
-    body: "Submit your garment type, quantity, blank preferences, and fulfillment goal. InkLink builds a structured order in seconds.",
+    body: "Submit your garment type, quantity, blank preferences, and fulfillment goal. PrintPair builds a structured order in seconds.",
   },
   {
     step: "02",
@@ -159,7 +159,7 @@ export default function Home() {
             </h2>
             <div>
               <p className="text-base leading-7 text-zinc-300">
-                InkLink starts with DTG and is designed to expand into DTF,
+                PrintPair starts with DTG and is designed to expand into DTF,
                 screen print, embroidery, heat transfer, local courier options,
                 and split routing. The platform is built to grow alongside your
                 fulfillment needs.

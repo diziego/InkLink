@@ -26,9 +26,9 @@ import type {
 } from "@/types";
 
 export const metadata: Metadata = {
-  title: "Merchant workspace | InkLink",
+  title: "Merchant workspace | PrintPair",
   description:
-    "Browse the InkLink product catalog, create a DTG order, and get transparent local provider recommendations from your verified network.",
+    "Browse the PrintPair product catalog, create a DTG order, and get transparent local provider recommendations from your verified network.",
 };
 
 type MerchantPageProps = {

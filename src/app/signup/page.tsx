@@ -8,7 +8,7 @@ import { signUpWithPasswordAction } from "@/actions/auth";
 
 export const metadata: Metadata = {
   title: `Create account | ${BRAND.name}`,
-  description: "Create an InkLink account.",
+  description: "Create a PrintPair account.",
 };
 
 type SignupPageProps = {

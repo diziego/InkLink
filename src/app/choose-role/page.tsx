@@ -7,7 +7,7 @@ import { chooseRoleAction } from "@/actions/auth";
 
 export const metadata: Metadata = {
   title: `Choose your role | ${BRAND.name}`,
-  description: "Tell us how you'll use InkLink.",
+  description: "Tell us how you'll use PrintPair.",
 };
 
 export default async function ChooseRolePage() {
@@ -36,7 +36,7 @@ export default async function ChooseRolePage() {
               Welcome to {BRAND.name}
             </h1>
             <p className="mt-2 text-sm text-zinc-500">
-              How will you use InkLink? You can only choose once.
+              How will you use PrintPair? You can only choose once.
             </p>
 
             <div className="mt-10 grid gap-4 sm:grid-cols-2">

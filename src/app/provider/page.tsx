@@ -33,7 +33,7 @@ import {
 } from "@/lib/provider/orders";
 
 export const metadata: Metadata = {
-  title: "Provider demo | InkLink",
+  title: "Provider | PrintPair",
   description:
     "Review and save a development provider onboarding profile with routing-relevant capability, capacity, and wholesale-readiness fields.",
 };
@@ -82,7 +82,7 @@ export default async function ProviderPage({
             <SectionHeading
               eyebrow="Provider onboarding"
               title="List your shop's capabilities to start receiving matched orders from local brands."
-              description="Complete your profile so InkLink can match your print methods, garment types, capacity, and location against incoming merchant orders."
+              description="Complete your profile so PrintPair can match your print methods, garment types, capacity, and location against incoming merchant orders."
             />
             <div className="mt-8">
               <PersistenceNotice

@@ -8,7 +8,7 @@ import { sendMagicLinkAction, signInWithPasswordAction } from "@/actions/auth";
 
 export const metadata: Metadata = {
   title: `Sign in | ${BRAND.name}`,
-  description: "Sign in to InkLink with your email.",
+  description: "Sign in to PrintPair with your email.",
 };
 
 type LoginPageProps = {
