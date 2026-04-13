@@ -22,6 +22,9 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
   if (user?.role) {
     redirect(getRoleDashboard(user.role));
   }
+  if (user?.needsPasswordSetup) {
+    redirect("/set-password");
+  }
   if (user && !user.role) {
     redirect("/choose-role");
   }

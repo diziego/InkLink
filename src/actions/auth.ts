@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { assignRole, getCurrentUser, getRoleDashboard } from "@/lib/auth/helpers";
+import { createSupabaseServiceRoleClient } from "@/lib/supabase/service-role";
 import type { Database } from "@/types/database";
 
 type UserRole = Database["public"]["Enums"]["user_role"];
@@ -67,6 +68,10 @@ export async function signInWithPasswordAction(formData: FormData) {
 
   const user = await getCurrentUser();
 
+  if (user?.needsPasswordSetup) {
+    redirect("/set-password");
+  }
+
   if (!user?.role) {
     redirect("/choose-role");
   }
@@ -115,6 +120,21 @@ export async function signUpWithPasswordAction(formData: FormData) {
     redirect("/signup?error=" + encodeURIComponent(error.message));
   }
 
+  // Create profile with needs_password_setup = false immediately.
+  // This runs even before email confirmation so the callback knows this
+  // user chose password auth and should NOT be forced to /set-password.
+  if (data.user) {
+    const serviceClient = createSupabaseServiceRoleClient();
+    await (serviceClient as any).from("profiles").upsert(
+      {
+        id: data.user.id,
+        email: data.user.email ?? null,
+        needs_password_setup: false,
+      },
+      { onConflict: "id" },
+    );
+  }
+
   // If session is null, Supabase sent a confirmation email.
   if (!data.session) {
     redirect("/signup?sent=1");
@@ -144,6 +164,77 @@ export async function chooseRoleAction(formData: FormData) {
   await assignRole(user.id, user.email, role as UserRole);
   revalidatePath("/");
   redirect(getRoleDashboard(role as UserRole));
+}
+
+/**
+ * Complete password setup for magic-link onboarding users.
+ * Sets the password on the auth user and clears needs_password_setup.
+ */
+export async function setPasswordAction(formData: FormData) {
+  const password = formData.get("password");
+  const confirmPassword = formData.get("confirmPassword");
+  const next = formData.get("next");
+  const nextUrl =
+    typeof next === "string" && next.startsWith("/") ? next : null;
+
+  if (typeof password !== "string" || password.length < 8) {
+    const q = nextUrl ? `&next=${encodeURIComponent(nextUrl)}` : "";
+    redirect(
+      "/set-password?error=" +
+        encodeURIComponent("Password must be at least 8 characters.") +
+        q,
+    );
+  }
+
+  if (password !== confirmPassword) {
+    const q = nextUrl ? `&next=${encodeURIComponent(nextUrl)}` : "";
+    redirect(
+      "/set-password?error=" +
+        encodeURIComponent("Passwords do not match.") +
+        q,
+    );
+  }
+
+  const supabase = await createSupabaseServerClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const { error } = await supabase.auth.updateUser({ password });
+
+  if (error) {
+    const q = nextUrl ? `&next=${encodeURIComponent(nextUrl)}` : "";
+    redirect(
+      "/set-password?error=" + encodeURIComponent(error.message) + q,
+    );
+  }
+
+  // Mark password setup complete
+  const serviceClient = createSupabaseServiceRoleClient();
+  await (serviceClient as any)
+    .from("profiles")
+    .update({ needs_password_setup: false })
+    .eq("id", user.id);
+
+  // Redirect: if they have a role already, go to dashboard; otherwise choose-role
+  const { data: roleRow } = (await (serviceClient as any)
+    .from("user_roles")
+    .select("role")
+    .eq("profile_id", user.id)
+    .maybeSingle()) as { data: { role: string } | null };
+
+  revalidatePath("/");
+
+  if (roleRow?.role) {
+    redirect(nextUrl ?? getRoleDashboard(roleRow.role as UserRole));
+  }
+
+  redirect(nextUrl ?? "/choose-role");
 }
 
 /**

@@ -10,6 +10,7 @@ export type AuthUser = {
   email: string;
   role: UserRole | null;
   displayName: string | null;
+  needsPasswordSetup: boolean;
 };
 
 export async function getCurrentUser(): Promise<AuthUser | null> {
@@ -31,15 +32,18 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
 
   const { data: profileRow } = (await supabase
     .from("profiles")
-    .select("display_name")
+    .select("display_name, needs_password_setup")
     .eq("id", user.id)
-    .maybeSingle()) as { data: { display_name: string | null } | null };
+    .maybeSingle()) as {
+    data: { display_name: string | null; needs_password_setup: boolean } | null;
+  };
 
   return {
     id: user.id,
     email: user.email,
     role: (roleRow?.role as UserRole) ?? null,
     displayName: profileRow?.display_name ?? null,
+    needsPasswordSetup: profileRow?.needs_password_setup ?? false,
   };
 }
 
@@ -48,6 +52,10 @@ export async function requireRole(requiredRole: UserRole): Promise<AuthUser> {
 
   if (!user) {
     redirect("/login");
+  }
+
+  if (user.needsPasswordSetup) {
+    redirect("/set-password");
   }
 
   if (!user.role) {
@@ -66,6 +74,10 @@ export async function requireAuth(): Promise<AuthUser> {
 
   if (!user) {
     redirect("/login");
+  }
+
+  if (user.needsPasswordSetup) {
+    redirect("/set-password");
   }
 
   return user;

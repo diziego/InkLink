@@ -17,6 +17,11 @@ export default async function ChooseRolePage() {
     redirect("/login");
   }
 
+  // Password setup must come before role selection
+  if (user.needsPasswordSetup) {
+    redirect("/set-password");
+  }
+
   // If they already have a role, skip to dashboard
   if (user.role) {
     redirect(getRoleDashboard(user.role));

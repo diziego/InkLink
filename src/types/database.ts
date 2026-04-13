@@ -54,6 +54,7 @@ export type Database = {
           id: string;
           display_name: string | null;
           email: string | null;
+          needs_password_setup: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -61,12 +62,14 @@ export type Database = {
           id: string;
           display_name?: string | null;
           email?: string | null;
+          needs_password_setup?: boolean;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           display_name?: string | null;
           email?: string | null;
+          needs_password_setup?: boolean;
           updated_at?: string;
         };
       };
