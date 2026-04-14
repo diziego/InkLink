@@ -91,6 +91,14 @@ export default async function MerchantPage({ searchParams }: MerchantPageProps) 
 
   // Success flag set by selectProviderAction redirect
   const providerSelectedFlag = resolvedSearchParams.providerSelected === "1";
+  const paymentState =
+    typeof resolvedSearchParams.payment === "string"
+      ? resolvedSearchParams.payment
+      : "";
+  const paymentError =
+    typeof resolvedSearchParams.paymentError === "string"
+      ? resolvedSearchParams.paymentError
+      : "";
   let savedOrder: MerchantOrder | null = null;
   if (orderId && supabaseReady) {
     savedOrder = await loadMerchantOrderById(orderId, user.id);
@@ -146,6 +154,8 @@ export default async function MerchantPage({ searchParams }: MerchantPageProps) 
           (r) => r.snapshotId === savedOrder!.selectedRecommendationSnapshotId,
         ) ?? null)
       : null;
+  const selectedRecommendationForOrder =
+    savedOrder ? getSelectedRecommendation(savedOrder, recommendations) : null;
 
   // Load order history
   let orderHistory: MerchantOrderSummary[] = [];
@@ -175,6 +185,7 @@ export default async function MerchantPage({ searchParams }: MerchantPageProps) 
               selectedRecommendation.operationalNotes.estimatedTurnaroundDays
             }
             orderId={orderId}
+            checkoutHref={getCheckoutHref(savedOrder, selectedRecommendationForOrder)}
           />
         ) : null}
 
@@ -216,6 +227,14 @@ export default async function MerchantPage({ searchParams }: MerchantPageProps) 
                 </p>
               )}
             </div>
+
+            <PaymentStatePanel
+              order={savedOrder}
+              paymentState={paymentState}
+              paymentError={paymentError}
+              checkoutHref={getCheckoutHref(savedOrder, selectedRecommendationForOrder)}
+              selectedRecommendation={selectedRecommendationForOrder}
+            />
 
             {topRecommendation ? (
               <FirstRankSummary recommendation={topRecommendation} />
@@ -265,6 +284,94 @@ export default async function MerchantPage({ searchParams }: MerchantPageProps) 
       </div>
     </main>
   );
+}
+
+function PaymentStatePanel({
+  order,
+  paymentState,
+  paymentError,
+  checkoutHref,
+  selectedRecommendation,
+}: {
+  order: MerchantOrder;
+  paymentState: string;
+  paymentError: string;
+  checkoutHref: string | null;
+  selectedRecommendation: PersistedProviderRecommendation | null;
+}) {
+  const isPaid = order.status === "paid" || order.paymentSummary?.status === "paid";
+  const isAwaitingPayment =
+    order.status === "provider_selected" &&
+    order.paymentSummary?.status !== "paid";
+  const providerName = selectedRecommendation?.providerName ?? "your selected provider";
+
+  if (isPaid) {
+    return (
+      <Card className="mb-5 border-emerald-200 bg-emerald-50">
+        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-emerald-700">
+          Payment confirmed
+        </p>
+        <h3 className="mt-2 text-3xl font-semibold text-zinc-950">
+          Your order is officially in production.
+        </h3>
+        <p className="mt-3 max-w-3xl text-sm leading-6 text-zinc-700">
+          PrintPair confirmed payment and sent this order to {providerName}&apos;s
+          active queue. Your provider can now begin production and update status
+          from their workspace.
+        </p>
+      </Card>
+    );
+  }
+
+  if (isAwaitingPayment) {
+    const paymentErrorMessage =
+      getPaymentErrorMessage(paymentError) ||
+      getNonPayableMessage(selectedRecommendation, checkoutHref);
+
+    return (
+      <Card className="mb-5 border-indigo-200 bg-indigo-50">
+        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-indigo-700">
+          Payment pending
+        </p>
+        <h3 className="mt-2 text-2xl font-semibold text-zinc-950">
+          Pay to send this order into production.
+        </h3>
+        <p className="mt-3 max-w-3xl text-sm leading-6 text-zinc-700">
+          You&apos;ve selected {providerName}. Payment is the next step that
+          moves the order from provider selection into the provider&apos;s active
+          production queue.
+        </p>
+        {paymentState === "processing" ? (
+          <p className="mt-3 text-sm text-zinc-700">
+            Payment is processing. This page will reflect the confirmed paid
+            state after Stripe and the webhook finalize the order.
+          </p>
+        ) : null}
+        {paymentState === "cancelled" ? (
+          <p className="mt-3 text-sm text-zinc-700">
+            Checkout was cancelled. Your order is still saved as provider selected.
+          </p>
+        ) : null}
+        {paymentErrorMessage ? (
+          <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
+            {paymentErrorMessage}
+          </div>
+        ) : null}
+        {checkoutHref ? (
+          <div className="mt-5">
+            <a
+              href={checkoutHref}
+              className="inline-flex h-11 items-center justify-center rounded-md bg-indigo-950 px-5 text-sm font-semibold text-white transition hover:bg-indigo-900"
+            >
+              Pay now
+            </a>
+          </div>
+        ) : null}
+      </Card>
+    );
+  }
+
+  return null;
 }
 
 // ─── MerchantNotice ───────────────────────────────────────────────────────────
@@ -474,11 +581,11 @@ function RecommendationCard({
     .slice(0, 3);
 
   const isSelected =
-    orderStatus === "provider_selected" &&
+    (orderStatus === "provider_selected" || orderStatus === "paid") &&
     selectedProviderProfileId === recommendation.providerId &&
     selectedRecommendationSnapshotId === recommendation.snapshotId;
   const anotherIsSelected =
-    orderStatus === "provider_selected" &&
+    (orderStatus === "provider_selected" || orderStatus === "paid") &&
     selectedRecommendationSnapshotId !== null &&
     selectedRecommendationSnapshotId !== recommendation.snapshotId;
 
@@ -624,6 +731,73 @@ function RecommendationCard({
       </details>
     </Card>
   );
+}
+
+function getSelectedRecommendation(
+  order: MerchantOrder,
+  recommendations: PersistedProviderRecommendation[],
+) {
+  if (!order.selectedRecommendationSnapshotId) {
+    return null;
+  }
+
+  return (
+    recommendations.find(
+      (recommendation) =>
+        recommendation.snapshotId === order.selectedRecommendationSnapshotId,
+    ) ?? null
+  );
+}
+
+function getCheckoutHref(
+  order: MerchantOrder | null,
+  selectedRecommendation: PersistedProviderRecommendation | null,
+) {
+  if (!order || order.status !== "provider_selected" || !selectedRecommendation) {
+    return null;
+  }
+
+  const estimatedTotalCents =
+    selectedRecommendation.priceEstimate?.estimatedTotalCents ?? null;
+  const pricingMode = selectedRecommendation.priceEstimate?.pricingMode ?? null;
+
+  if (pricingMode === "manual_quote" || estimatedTotalCents === null || estimatedTotalCents <= 0) {
+    return null;
+  }
+
+  return `/api/stripe/checkout?orderId=${order.id}`;
+}
+
+function getPaymentErrorMessage(paymentError: string) {
+  switch (paymentError) {
+    case "manual_quote":
+      return "This provider selection requires a manual quote before payment can begin.";
+    case "missing_estimate":
+      return "A payable estimate is not available for this provider selection yet.";
+    case "invalid_amount":
+      return "The selected provider estimate is not payable yet.";
+    case "stripe_unconfigured":
+      return "Stripe is not configured in this environment yet.";
+    case "checkout_unavailable":
+      return "Checkout could not be started right now. Please try again.";
+    default:
+      return "";
+  }
+}
+
+function getNonPayableMessage(
+  selectedRecommendation: PersistedProviderRecommendation | null,
+  checkoutHref: string | null,
+) {
+  if (checkoutHref || !selectedRecommendation) {
+    return "";
+  }
+
+  if (selectedRecommendation.priceEstimate?.pricingMode === "manual_quote") {
+    return "This provider requires a manual quote before payment can begin.";
+  }
+
+  return "A payable estimate is not available for this provider selection yet.";
 }
 
 function SelectProviderForm({

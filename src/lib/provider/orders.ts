@@ -6,6 +6,7 @@ export type OrderStatus =
   | "ready_for_routing"
   | "routed"
   | "provider_selected"
+  | "paid"
   | "accepted"
   | "in_production"
   | "ready"

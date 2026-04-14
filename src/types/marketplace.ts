@@ -44,6 +44,21 @@ export type OrderStatus =
   | "completed"
   | "cancelled";
 
+export type PaymentStatus =
+  | "checkout_pending"
+  | "paid"
+  | "failed"
+  | "expired"
+  | "cancelled";
+
+export type MerchantPaymentSummary = {
+  id: string;
+  status: PaymentStatus;
+  amountCents: number;
+  checkoutSessionId?: string | null;
+  paidAt?: string | null;
+};
+
 export type Profile = {
   id: string;
   role: UserRole;
@@ -154,4 +169,5 @@ export type MerchantOrder = {
   selectedProviderProfileId?: string | null;
   selectedRecommendationSnapshotId?: string | null;
   selectedEstimatedPriceCents?: number | null;
+  paymentSummary?: MerchantPaymentSummary | null;
 };

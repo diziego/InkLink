@@ -7,7 +7,9 @@ import type {
   FulfillmentGoal,
   GarmentType,
   MerchantOrder,
+  MerchantPaymentSummary,
   OrderItem,
+  PaymentStatus,
   PrintMethod,
 } from "@/types";
 import type { Database, Json } from "@/types/database";
@@ -17,6 +19,7 @@ type MerchantOrderItemRow =
   Database["public"]["Tables"]["merchant_order_items"]["Row"];
 type RecommendationSnapshotRow =
   Database["public"]["Tables"]["recommendation_snapshots"]["Row"];
+type PaymentRow = Database["public"]["Tables"]["payments"]["Row"];
 
 export type SaveOrderInput = {
   fulfillmentZip: string;
@@ -51,6 +54,28 @@ export type MerchantOrderSummary = {
   quantity: number;
   createdAt: string;
 };
+
+export type MerchantCheckoutPreparation =
+  | {
+      kind: "payable";
+      orderId: string;
+      amountCents: number;
+      providerProfileId: string;
+      providerName: string;
+      recommendationSnapshotId: string;
+      payment: MerchantPaymentSummary | null;
+      customerEmail: string | null;
+    }
+  | {
+      kind: "already_paid";
+      orderId: string;
+    }
+  | {
+      kind: "not_payable";
+      orderId: string;
+      reason: "manual_quote" | "missing_estimate" | "invalid_amount";
+      providerName: string;
+    };
 
 export async function saveMerchantOrder(
   profileId: string,
@@ -218,7 +243,14 @@ export async function loadMerchantOrderById(
   if (itemsResult.error) throw new Error(itemsResult.error.message);
   const itemRows = (itemsResult.data ?? []) as MerchantOrderItemRow[];
 
-  return adaptOrderRow(orderRow, itemRows);
+  const paymentResult = await (supabase.from("payments") as any)
+    .select("*")
+    .eq("merchant_order_id", orderId)
+    .maybeSingle();
+  const paymentRow = paymentResult.data as PaymentRow | null;
+  if (paymentResult.error) throw new Error(paymentResult.error.message);
+
+  return adaptOrderRow(orderRow, itemRows, paymentRow);
 }
 
 export async function loadMerchantOrderHistory(
@@ -338,6 +370,7 @@ export async function selectProviderForOrder(
 function adaptOrderRow(
   row: MerchantOrderRow,
   items: MerchantOrderItemRow[],
+  payment: PaymentRow | null,
 ): MerchantOrder {
   return {
     id: row.id,
@@ -353,6 +386,7 @@ function adaptOrderRow(
     selectedRecommendationSnapshotId:
       row.selected_recommendation_snapshot_id ?? null,
     selectedEstimatedPriceCents: row.selected_estimated_price_cents ?? null,
+    paymentSummary: adaptPaymentRow(payment),
     items: items.map(adaptItemRow),
   };
 }
@@ -370,4 +404,256 @@ function adaptItemRow(row: MerchantOrderItemRow): OrderItem {
     >) ?? {},
     color: row.color,
   };
+}
+
+function adaptPaymentRow(payment: PaymentRow | null): MerchantPaymentSummary | null {
+  if (!payment) {
+    return null;
+  }
+
+  return {
+    id: payment.id,
+    status: payment.status as PaymentStatus,
+    amountCents: payment.amount_cents,
+    checkoutSessionId: payment.stripe_checkout_session_id,
+    paidAt: payment.paid_at,
+  };
+}
+
+export async function prepareMerchantOrderForCheckout(
+  orderId: string,
+  profileId: string,
+): Promise<MerchantCheckoutPreparation> {
+  const supabase = createSupabaseServiceRoleClient();
+
+  const orderResult = await (supabase.from("merchant_orders") as any)
+    .select("id, status, profile_id, selected_provider_profile_id, selected_recommendation_snapshot_id")
+    .eq("id", orderId)
+    .eq("profile_id", profileId)
+    .maybeSingle();
+  const orderRow = orderResult.data as Pick<
+    MerchantOrderRow,
+    | "id"
+    | "status"
+    | "profile_id"
+    | "selected_provider_profile_id"
+    | "selected_recommendation_snapshot_id"
+  > | null;
+
+  if (orderResult.error) {
+    throw new Error(orderResult.error.message);
+  }
+
+  if (!orderRow) {
+    throw new Error("Order not found");
+  }
+
+  if (orderRow.status === "paid") {
+    return {
+      kind: "already_paid",
+      orderId,
+    };
+  }
+
+  if (
+    orderRow.status !== "provider_selected" ||
+    !orderRow.selected_provider_profile_id ||
+    !orderRow.selected_recommendation_snapshot_id
+  ) {
+    throw new Error("Order is not ready for payment");
+  }
+
+  const [snapshotResult, paymentResult, providerResult, profileResult] =
+    await Promise.all([
+      (supabase.from("recommendation_snapshots") as any)
+        .select("id, provider_profile_id, pricing_mode, estimated_total_cents")
+        .eq("id", orderRow.selected_recommendation_snapshot_id)
+        .eq("merchant_order_id", orderId)
+        .maybeSingle(),
+      (supabase.from("payments") as any)
+        .select("*")
+        .eq("merchant_order_id", orderId)
+        .maybeSingle(),
+      (supabase.from("provider_profiles") as any)
+        .select("business_name")
+        .eq("id", orderRow.selected_provider_profile_id)
+        .maybeSingle(),
+      (supabase.from("profiles") as any)
+        .select("email")
+        .eq("id", profileId)
+        .maybeSingle(),
+    ]);
+
+  const snapshotRow = snapshotResult.data as Pick<
+    RecommendationSnapshotRow,
+    "id" | "provider_profile_id" | "pricing_mode" | "estimated_total_cents"
+  > | null;
+  const paymentRow = paymentResult.data as PaymentRow | null;
+  const providerRow = providerResult.data as { business_name: string } | null;
+  const profileRow = profileResult.data as { email: string | null } | null;
+
+  if (snapshotResult.error) throw new Error(snapshotResult.error.message);
+  if (paymentResult.error) throw new Error(paymentResult.error.message);
+  if (providerResult.error) throw new Error(providerResult.error.message);
+  if (profileResult.error) throw new Error(profileResult.error.message);
+
+  if (!snapshotRow) {
+    throw new Error("Selected recommendation snapshot not found");
+  }
+
+  if (
+    snapshotRow.pricing_mode === "manual_quote" ||
+    snapshotRow.estimated_total_cents === null
+  ) {
+    return {
+      kind: "not_payable",
+      orderId,
+      reason:
+        snapshotRow.pricing_mode === "manual_quote"
+          ? "manual_quote"
+          : "missing_estimate",
+      providerName: providerRow?.business_name ?? "Selected provider",
+    };
+  }
+
+  if (snapshotRow.estimated_total_cents <= 0) {
+    return {
+      kind: "not_payable",
+      orderId,
+      reason: "invalid_amount",
+      providerName: providerRow?.business_name ?? "Selected provider",
+    };
+  }
+
+  return {
+    kind: "payable",
+    orderId,
+    amountCents: snapshotRow.estimated_total_cents,
+    providerProfileId: snapshotRow.provider_profile_id,
+    providerName: providerRow?.business_name ?? "Selected provider",
+    recommendationSnapshotId: snapshotRow.id,
+    payment: adaptPaymentRow(paymentRow),
+    customerEmail: profileRow?.email ?? null,
+  };
+}
+
+export async function upsertCheckoutPendingPayment(
+  input: {
+    orderId: string;
+    recommendationSnapshotId: string;
+    providerProfileId: string;
+    amountCents: number;
+    stripeCheckoutSessionId: string;
+    customerEmail?: string | null;
+  },
+): Promise<void> {
+  const supabase = createSupabaseServiceRoleClient();
+  const now = new Date().toISOString();
+
+  const result = await (supabase.from("payments") as any).upsert(
+    {
+      merchant_order_id: input.orderId,
+      recommendation_snapshot_id: input.recommendationSnapshotId,
+      selected_provider_profile_id: input.providerProfileId,
+      status: "checkout_pending",
+      amount_cents: input.amountCents,
+      currency: "usd",
+      stripe_checkout_session_id: input.stripeCheckoutSessionId,
+      stripe_customer_email: input.customerEmail ?? null,
+      checkout_created_at: now,
+      updated_at: now,
+    },
+    { onConflict: "merchant_order_id" },
+  );
+
+  if (result.error) {
+    throw new Error(result.error.message);
+  }
+}
+
+export async function markPaymentExpiredByCheckoutSession(
+  stripeCheckoutSessionId: string,
+): Promise<void> {
+  const supabase = createSupabaseServiceRoleClient();
+  const result = await (supabase.from("payments") as any)
+    .update({
+      status: "expired",
+      expired_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("stripe_checkout_session_id", stripeCheckoutSessionId)
+    .neq("status", "paid");
+
+  if (result.error) {
+    throw new Error(result.error.message);
+  }
+}
+
+export async function finalizeSuccessfulPayment(input: {
+  orderId: string;
+  stripeCheckoutSessionId: string;
+  stripePaymentIntentId?: string | null;
+  customerEmail?: string | null;
+}): Promise<void> {
+  const supabase = createSupabaseServiceRoleClient();
+
+  const paymentResult = await (supabase.from("payments") as any)
+    .select("*")
+    .eq("merchant_order_id", input.orderId)
+    .maybeSingle();
+  const paymentRow = paymentResult.data as PaymentRow | null;
+
+  if (paymentResult.error) {
+    throw new Error(paymentResult.error.message);
+  }
+
+  if (!paymentRow) {
+    throw new Error("Payment row not found for order");
+  }
+
+  if (paymentRow.status === "paid") {
+    return;
+  }
+
+  const now = new Date().toISOString();
+
+  const updatePaymentResult = await (supabase.from("payments") as any)
+    .update({
+      status: "paid",
+      stripe_checkout_session_id: input.stripeCheckoutSessionId,
+      stripe_payment_intent_id: input.stripePaymentIntentId ?? null,
+      stripe_customer_email: input.customerEmail ?? paymentRow.stripe_customer_email,
+      paid_at: now,
+      updated_at: now,
+    })
+    .eq("id", paymentRow.id);
+
+  if (updatePaymentResult.error) {
+    throw new Error(updatePaymentResult.error.message);
+  }
+
+  const updateOrderResult = await (supabase.from("merchant_orders") as any)
+    .update({
+      status: "paid",
+      updated_at: now,
+    })
+    .eq("id", input.orderId);
+
+  if (updateOrderResult.error) {
+    throw new Error(updateOrderResult.error.message);
+  }
+
+  const assignmentResult = await (supabase.from("order_assignments") as any).upsert(
+    {
+      merchant_order_id: input.orderId,
+      provider_profile_id: paymentRow.selected_provider_profile_id,
+      status: "accepted",
+      responded_at: now,
+    },
+    { onConflict: "merchant_order_id,provider_profile_id" },
+  );
+
+  if (assignmentResult.error) {
+    throw new Error(assignmentResult.error.message);
+  }
 }

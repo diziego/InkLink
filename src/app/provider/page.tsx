@@ -815,6 +815,7 @@ function IncomingOrders({
 }
 
 const ORDER_STATUS_LABELS: Record<string, string> = {
+  paid: "Paid",
   accepted: "Accepted",
   in_production: "In production",
   ready: "Ready for pickup / ship",
@@ -823,6 +824,7 @@ const ORDER_STATUS_LABELS: Record<string, string> = {
 };
 
 const NEXT_STATUS_LABELS: Record<string, string> = {
+  paid: "Start production",
   accepted: "Start production",
   in_production: "Mark as ready",
   ready: "Mark as shipped",

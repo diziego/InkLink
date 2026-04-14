@@ -9,6 +9,7 @@ type Props = {
   isManualQuote: boolean;
   turnaroundDays: number;
   orderId: string;
+  checkoutHref: string | null;
 };
 
 export function ProviderSelectedModal({
@@ -17,6 +18,7 @@ export function ProviderSelectedModal({
   isManualQuote,
   turnaroundDays,
   orderId,
+  checkoutHref,
 }: Props) {
   const router = useRouter();
   const [visible, setVisible] = useState(true);
@@ -102,13 +104,29 @@ export function ProviderSelectedModal({
           </div>
 
           {/* Actions */}
-          <button
-            type="button"
-            onClick={dismiss}
-            className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-md bg-indigo-950 px-5 text-sm font-semibold text-white transition hover:bg-indigo-900"
-          >
-            Got it
-          </button>
+          <div className="mt-5 flex flex-col gap-2">
+            {checkoutHref ? (
+              <a
+                href={checkoutHref}
+                className="inline-flex h-11 w-full items-center justify-center rounded-md bg-indigo-950 px-5 text-sm font-semibold text-white transition hover:bg-indigo-900"
+              >
+                Continue to payment
+              </a>
+            ) : (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
+                {isManualQuote
+                  ? "This provider requires a manual quote before payment can begin."
+                  : "Payment is not available for this provider selection yet."}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={dismiss}
+              className="inline-flex h-11 w-full items-center justify-center rounded-md border border-zinc-300 bg-white px-5 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50"
+            >
+              Pay later
+            </button>
+          </div>
         </div>
       </div>
     </div>

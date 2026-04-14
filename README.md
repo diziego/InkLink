@@ -155,8 +155,23 @@ Add your Supabase project values to `.env.local` when you are ready to test live
 NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...
+STRIPE_SECRET_KEY=...
+STRIPE_WEBHOOK_SECRET=...
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=...
 DEV_PROVIDER_EMAIL=provider-demo@inklink.local
 DEV_ADMIN_EMAIL=admin-demo@inklink.local
+```
+
+To test hosted Stripe Checkout locally after a provider is selected:
+
+```bash
+stripe listen --forward-to localhost:3000/api/stripe/webhook
+```
+
+Copy the printed signing secret into:
+
+```bash
+STRIPE_WEBHOOK_SECRET=whsec_...
 ```
 
 Run the development server:

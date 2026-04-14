@@ -7,6 +7,7 @@ import type { OrderStatus } from "@/lib/provider/orders";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase";
 
 const NEXT_STATUS: Partial<Record<OrderStatus, OrderStatus>> = {
+  paid: "in_production",
   accepted: "in_production",
   in_production: "ready",
   ready: "shipped",
