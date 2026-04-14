@@ -1,5 +1,8 @@
 import { createSupabaseServiceRoleClient } from "@/lib/supabase";
-import { recommendLiveProvidersForOrder } from "@/lib/merchant/recommendations";
+import {
+  persistRecommendationSnapshotsForOrder,
+  recommendLiveProvidersForOrder,
+} from "@/lib/merchant/recommendations";
 import type {
   FulfillmentGoal,
   GarmentType,
@@ -12,6 +15,8 @@ import type { Database, Json } from "@/types/database";
 type MerchantOrderRow = Database["public"]["Tables"]["merchant_orders"]["Row"];
 type MerchantOrderItemRow =
   Database["public"]["Tables"]["merchant_order_items"]["Row"];
+type RecommendationSnapshotRow =
+  Database["public"]["Tables"]["recommendation_snapshots"]["Row"];
 
 export type SaveOrderInput = {
   fulfillmentZip: string;
@@ -140,8 +145,8 @@ export async function saveCartOrder(
 }
 
 /**
- * Run routing for the saved order and insert assignments for the top 3
- * recommended providers. Silently skips if no verified providers exist.
+ * Run routing for the saved order and persist the top 3 recommendation
+ * snapshots. Silently skips if no verified providers exist.
  * MOCKED: routing uses mock scoring weights and proximity calculations.
  */
 export async function assignTopProviders(
@@ -174,25 +179,21 @@ export async function assignTopProviders(
   };
 
   const { recommendations } = await recommendLiveProvidersForOrder(order);
-  if (recommendations.length === 0) return;
-
   const top3 = recommendations.slice(0, 3);
-  const supabase = createSupabaseServiceRoleClient();
+  await persistRecommendationSnapshotsForOrder(orderId, top3);
 
-  const rows = top3.map((rec) => ({
-    merchant_order_id: orderId,
-    provider_profile_id: rec.providerId,
-    status: "pending" as const,
-  }));
+  if (top3.length > 0) {
+    const supabase = createSupabaseServiceRoleClient();
+    const result = await (supabase.from("merchant_orders") as any)
+      .update({
+        status: "routed",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", orderId);
 
-  // Use upsert so re-submitting the same order doesn't error on the unique constraint
-  const result = await (supabase.from("order_assignments") as any).upsert(
-    rows,
-    { onConflict: "merchant_order_id,provider_profile_id", ignoreDuplicates: true },
-  );
-
-  if (result.error) {
-    throw new Error(result.error.message);
+    if (result.error) {
+      throw new Error(result.error.message);
+    }
   }
 }
 
@@ -287,16 +288,45 @@ export async function loadMerchantOrderHistory(
 export async function selectProviderForOrder(
   orderId: string,
   profileId: string,
-  providerProfileId: string,
-  estimatedPriceCents: number | null,
+  recommendationSnapshotId: string,
 ): Promise<void> {
   const supabase = createSupabaseServiceRoleClient();
+
+  const orderResult = await (supabase.from("merchant_orders") as any)
+    .select("id")
+    .eq("id", orderId)
+    .eq("profile_id", profileId)
+    .maybeSingle();
+
+  if (orderResult.error) {
+    throw new Error(orderResult.error.message);
+  }
+
+  if (!orderResult.data) {
+    throw new Error("Order not found");
+  }
+
+  const snapshotResult = await (supabase.from("recommendation_snapshots") as any)
+    .select("*")
+    .eq("id", recommendationSnapshotId)
+    .eq("merchant_order_id", orderId)
+    .maybeSingle();
+  const snapshotRow = snapshotResult.data as RecommendationSnapshotRow | null;
+
+  if (snapshotResult.error) {
+    throw new Error(snapshotResult.error.message);
+  }
+
+  if (!snapshotRow) {
+    throw new Error("Recommendation snapshot not found");
+  }
 
   const result = await (supabase.from("merchant_orders") as any)
     .update({
       status: "provider_selected",
-      selected_provider_profile_id: providerProfileId,
-      selected_estimated_price_cents: estimatedPriceCents ?? null,
+      selected_provider_profile_id: snapshotRow.provider_profile_id,
+      selected_recommendation_snapshot_id: snapshotRow.id,
+      selected_estimated_price_cents: snapshotRow.estimated_total_cents,
       updated_at: new Date().toISOString(),
     })
     .eq("id", orderId)
@@ -320,6 +350,8 @@ function adaptOrderRow(
     createdAt: row.created_at,
     notes: row.notes ?? "",
     selectedProviderProfileId: row.selected_provider_profile_id ?? null,
+    selectedRecommendationSnapshotId:
+      row.selected_recommendation_snapshot_id ?? null,
     selectedEstimatedPriceCents: row.selected_estimated_price_cents ?? null,
     items: items.map(adaptItemRow),
   };

@@ -40,6 +40,7 @@ export type Database = {
         | "ready_for_routing"
         | "routed"
         | "provider_selected"
+        | "paid"
         | "accepted"
         | "in_production"
         | "ready"
@@ -47,6 +48,12 @@ export type Database = {
         | "completed"
         | "cancelled";
       pricing_mode: "instant" | "manual_quote" | "hybrid";
+      payment_status:
+        | "checkout_pending"
+        | "paid"
+        | "failed"
+        | "expired"
+        | "cancelled";
       review_decision: "pending" | "approved" | "rejected" | "needs_changes";
       assignment_status: "pending" | "accepted" | "declined";
     };
@@ -372,6 +379,7 @@ export type Database = {
           needed_by_date: string | null;
           notes: string | null;
           selected_provider_profile_id: string | null;
+          selected_recommendation_snapshot_id: string | null;
           selected_estimated_price_cents: number | null;
           created_at: string;
           updated_at: string;
@@ -386,6 +394,7 @@ export type Database = {
           needed_by_date?: string | null;
           notes?: string | null;
           selected_provider_profile_id?: string | null;
+          selected_recommendation_snapshot_id?: string | null;
           selected_estimated_price_cents?: number | null;
           created_at?: string;
           updated_at?: string;
@@ -398,7 +407,78 @@ export type Database = {
           needed_by_date?: string | null;
           notes?: string | null;
           selected_provider_profile_id?: string | null;
+          selected_recommendation_snapshot_id?: string | null;
           selected_estimated_price_cents?: number | null;
+          updated_at?: string;
+        };
+      };
+      recommendation_snapshots: {
+        Row: {
+          id: string;
+          merchant_order_id: string;
+          provider_profile_id: string;
+          rank: number;
+          score: number;
+          factor_breakdown: Json;
+          explanation: string;
+          pricing_profile_id: string | null;
+          pricing_mode: Database["public"]["Enums"]["pricing_mode"] | null;
+          estimated_total_cents: number | null;
+          base_price_cents: number | null;
+          setup_fee_cents: number | null;
+          quantity: number;
+          turnaround_days: number | null;
+          supports_local_pickup: boolean;
+          supports_shipping: boolean;
+          estimated_shipping_cost_usd: number | null;
+          estimated_distance_miles: number | null;
+          available_capacity_units: number | null;
+          requested_units: number | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          merchant_order_id: string;
+          provider_profile_id: string;
+          rank: number;
+          score: number;
+          factor_breakdown?: Json;
+          explanation?: string;
+          pricing_profile_id?: string | null;
+          pricing_mode?: Database["public"]["Enums"]["pricing_mode"] | null;
+          estimated_total_cents?: number | null;
+          base_price_cents?: number | null;
+          setup_fee_cents?: number | null;
+          quantity?: number;
+          turnaround_days?: number | null;
+          supports_local_pickup?: boolean;
+          supports_shipping?: boolean;
+          estimated_shipping_cost_usd?: number | null;
+          estimated_distance_miles?: number | null;
+          available_capacity_units?: number | null;
+          requested_units?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          rank?: number;
+          score?: number;
+          factor_breakdown?: Json;
+          explanation?: string;
+          pricing_profile_id?: string | null;
+          pricing_mode?: Database["public"]["Enums"]["pricing_mode"] | null;
+          estimated_total_cents?: number | null;
+          base_price_cents?: number | null;
+          setup_fee_cents?: number | null;
+          quantity?: number;
+          turnaround_days?: number | null;
+          supports_local_pickup?: boolean;
+          supports_shipping?: boolean;
+          estimated_shipping_cost_usd?: number | null;
+          estimated_distance_miles?: number | null;
+          available_capacity_units?: number | null;
+          requested_units?: number | null;
           updated_at?: string;
         };
       };
@@ -460,6 +540,62 @@ export type Database = {
         Update: {
           status?: Database["public"]["Enums"]["assignment_status"];
           responded_at?: string | null;
+        };
+      };
+      payments: {
+        Row: {
+          id: string;
+          merchant_order_id: string;
+          recommendation_snapshot_id: string;
+          selected_provider_profile_id: string;
+          status: Database["public"]["Enums"]["payment_status"];
+          amount_cents: number;
+          currency: string;
+          stripe_checkout_session_id: string | null;
+          stripe_payment_intent_id: string | null;
+          stripe_customer_email: string | null;
+          checkout_created_at: string | null;
+          paid_at: string | null;
+          failed_at: string | null;
+          expired_at: string | null;
+          cancelled_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          merchant_order_id: string;
+          recommendation_snapshot_id: string;
+          selected_provider_profile_id: string;
+          status?: Database["public"]["Enums"]["payment_status"];
+          amount_cents: number;
+          currency?: string;
+          stripe_checkout_session_id?: string | null;
+          stripe_payment_intent_id?: string | null;
+          stripe_customer_email?: string | null;
+          checkout_created_at?: string | null;
+          paid_at?: string | null;
+          failed_at?: string | null;
+          expired_at?: string | null;
+          cancelled_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          recommendation_snapshot_id?: string;
+          selected_provider_profile_id?: string;
+          status?: Database["public"]["Enums"]["payment_status"];
+          amount_cents?: number;
+          currency?: string;
+          stripe_checkout_session_id?: string | null;
+          stripe_payment_intent_id?: string | null;
+          stripe_customer_email?: string | null;
+          checkout_created_at?: string | null;
+          paid_at?: string | null;
+          failed_at?: string | null;
+          expired_at?: string | null;
+          cancelled_at?: string | null;
+          updated_at?: string;
         };
       };
       admin_provider_reviews: {

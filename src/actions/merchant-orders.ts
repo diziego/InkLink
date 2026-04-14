@@ -130,10 +130,10 @@ export async function submitCartAction(formData: FormData) {
   // Quantities come from individual named inputs quantity_0, quantity_1, …
   const items: SaveCartOrderInput["items"] = rawItems.map((item, i) => {
     const rawQty = Number.parseInt(
-      String(formData.get(`quantity_${i}`) ?? "24"),
+      String(formData.get(`quantity_${i}`) ?? "1"),
       10,
     );
-    const quantity = Number.isNaN(rawQty) ? 24 : Math.max(1, Math.min(rawQty, 500));
+    const quantity = Number.isNaN(rawQty) ? 1 : Math.max(1, Math.min(rawQty, 500));
     const garmentType = validGarmentTypes.includes(item.garmentType as GarmentType)
       ? (item.garmentType as GarmentType)
       : "t_shirt";
@@ -177,19 +177,14 @@ export async function selectProviderAction(formData: FormData): Promise<void> {
   const user = await requireRole("merchant");
 
   const orderId = String(formData.get("orderId") ?? "").trim();
-  const providerProfileId = String(
-    formData.get("providerProfileId") ?? "",
+  const recommendationSnapshotId = String(
+    formData.get("recommendationSnapshotId") ?? "",
   ).trim();
-  const rawEstimate = parseInt(
-    String(formData.get("estimatedPriceCents") ?? ""),
-    10,
-  );
-  const estimatedPriceCents = isNaN(rawEstimate) ? null : rawEstimate;
 
-  if (!orderId || !providerProfileId) {
+  if (!orderId || !recommendationSnapshotId) {
     redirect("/merchant");
   }
 
-  await selectProviderForOrder(orderId, user.id, providerProfileId, estimatedPriceCents);
+  await selectProviderForOrder(orderId, user.id, recommendationSnapshotId);
   redirect(`/merchant?orderId=${orderId}&providerSelected=1`);
 }

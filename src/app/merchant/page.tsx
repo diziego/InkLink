@@ -7,8 +7,10 @@ import { Badge, StatusBadge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { MockNotice } from "@/components/ui/mock-notice";
 import {
+  loadMerchantProviderData,
+  loadRecommendationSnapshotsForOrder,
   recommendLiveProvidersForOrder,
-  type ProviderRecommendationWithPricing,
+  type PersistedProviderRecommendation,
 } from "@/lib/merchant/recommendations";
 import {
   loadMerchantOrderById,
@@ -94,10 +96,7 @@ export default async function MerchantPage({ searchParams }: MerchantPageProps) 
     savedOrder = await loadMerchantOrderById(orderId, user.id);
   }
 
-  // Run provider matching to populate blank inventory suggestions and,
-  // when a saved order is loaded, to show ranked recommendations.
-  // Uses a minimal default order when no saved order is present.
-  const orderForRouting: MerchantOrder = savedOrder ?? {
+  const defaultOrderForRouting: MerchantOrder = {
     id: "merchant-page-default",
     merchantId: "",
     status: "ready_for_routing",
@@ -119,8 +118,9 @@ export default async function MerchantPage({ searchParams }: MerchantPageProps) 
     ],
   };
 
-  const recommendationData = await recommendLiveProvidersForOrder(orderForRouting);
-  const providerData = recommendationData.providerData;
+  const providerData = savedOrder
+    ? await loadMerchantProviderData()
+    : (await recommendLiveProvidersForOrder(defaultOrderForRouting)).providerData;
 
   const blankBrandOptions = Array.from(
     new Set(providerData.inventory.map((b) => b.blankBrand)),
@@ -130,9 +130,10 @@ export default async function MerchantPage({ searchParams }: MerchantPageProps) 
   ).sort();
   const hasVerifiedProviders = providerData.providers.length > 0;
 
-  // Recommendations are only shown when a specific saved order is loaded
-  const recommendations: ProviderRecommendationWithPricing[] = savedOrder
-    ? recommendationData.recommendations.slice(0, 3)
+  // Recommendations are only shown when a specific saved order is loaded.
+  // Saved orders render from frozen recommendation snapshots.
+  const recommendations: PersistedProviderRecommendation[] = savedOrder
+    ? await loadRecommendationSnapshotsForOrder(savedOrder.id)
     : [];
   const topRecommendation = recommendations[0] ?? null;
 
@@ -140,9 +141,9 @@ export default async function MerchantPage({ searchParams }: MerchantPageProps) 
   const selectedRecommendation =
     providerSelectedFlag &&
     savedOrder?.status === "provider_selected" &&
-    savedOrder.selectedProviderProfileId
+    savedOrder.selectedRecommendationSnapshotId
       ? (recommendations.find(
-          (r) => r.providerId === savedOrder!.selectedProviderProfileId,
+          (r) => r.snapshotId === savedOrder!.selectedRecommendationSnapshotId,
         ) ?? null)
       : null;
 
@@ -232,6 +233,9 @@ export default async function MerchantPage({ searchParams }: MerchantPageProps) 
                     selectedProviderProfileId={
                       savedOrder!.selectedProviderProfileId ?? null
                     }
+                    selectedRecommendationSnapshotId={
+                      savedOrder!.selectedRecommendationSnapshotId ?? null
+                    }
                   />
                 ))}
               </div>
@@ -300,9 +304,8 @@ function MerchantNotice({
   if (isSavedOrder) {
     return (
       <MockNotice>
-        Showing your saved order below. Recommendations use live verified
-        provider records. Shipping, distance, and blank-fit estimates are
-        calculated using standard industry benchmarks.
+        Showing your saved order below. Provider comparison is loaded from the
+        frozen recommendation snapshot saved when this order was routed.
       </MockNotice>
     );
   }
@@ -450,12 +453,14 @@ function RecommendationCard({
   orderId,
   orderStatus,
   selectedProviderProfileId,
+  selectedRecommendationSnapshotId,
 }: {
   rank: number;
-  recommendation: ProviderRecommendationWithPricing;
+  recommendation: PersistedProviderRecommendation;
   orderId: string;
   orderStatus: OrderStatus;
   selectedProviderProfileId: string | null;
+  selectedRecommendationSnapshotId: string | null;
 }) {
   const notes = recommendation.operationalNotes;
   const isTopRank = rank === 1;
@@ -470,10 +475,12 @@ function RecommendationCard({
 
   const isSelected =
     orderStatus === "provider_selected" &&
-    selectedProviderProfileId === recommendation.providerId;
+    selectedProviderProfileId === recommendation.providerId &&
+    selectedRecommendationSnapshotId === recommendation.snapshotId;
   const anotherIsSelected =
     orderStatus === "provider_selected" &&
-    selectedProviderProfileId !== recommendation.providerId;
+    selectedRecommendationSnapshotId !== null &&
+    selectedRecommendationSnapshotId !== recommendation.snapshotId;
 
   const priceLabel = recommendation.priceEstimate
     ? recommendation.priceEstimate.estimatedTotalCents !== null
@@ -521,10 +528,7 @@ function RecommendationCard({
           ) : !anotherIsSelected ? (
             <SelectProviderForm
               orderId={orderId}
-              providerProfileId={recommendation.providerId}
-              estimatedPriceCents={
-                recommendation.priceEstimate?.estimatedTotalCents ?? null
-              }
+              recommendationSnapshotId={recommendation.snapshotId}
               priceLabel={priceLabel}
             />
           ) : null}
@@ -624,26 +628,21 @@ function RecommendationCard({
 
 function SelectProviderForm({
   orderId,
-  providerProfileId,
-  estimatedPriceCents,
+  recommendationSnapshotId,
   priceLabel,
 }: {
   orderId: string;
-  providerProfileId: string;
-  estimatedPriceCents: number | null;
+  recommendationSnapshotId: string;
   priceLabel: string;
 }) {
   return (
     <form action={selectProviderAction} className="flex flex-col gap-1">
       <input type="hidden" name="orderId" value={orderId} />
-      <input type="hidden" name="providerProfileId" value={providerProfileId} />
-      {estimatedPriceCents !== null ? (
-        <input
-          type="hidden"
-          name="estimatedPriceCents"
-          value={estimatedPriceCents}
-        />
-      ) : null}
+      <input
+        type="hidden"
+        name="recommendationSnapshotId"
+        value={recommendationSnapshotId}
+      />
       <div className="rounded-md border border-zinc-200 bg-zinc-50 px-4 py-2 text-center">
         <p className="text-xs uppercase tracking-[0.14em] text-zinc-500">
           Est. price
