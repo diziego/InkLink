@@ -39,12 +39,14 @@ export type Database = {
         | "draft"
         | "ready_for_routing"
         | "routed"
+        | "provider_selected"
         | "accepted"
         | "in_production"
         | "ready"
         | "shipped"
         | "completed"
         | "cancelled";
+      pricing_mode: "instant" | "manual_quote" | "hybrid";
       review_decision: "pending" | "approved" | "rejected" | "needs_changes";
       assignment_status: "pending" | "accepted" | "declined";
     };
@@ -316,6 +318,49 @@ export type Database = {
           updated_at?: string;
         };
       };
+      provider_pricing_profiles: {
+        Row: {
+          id: string;
+          provider_profile_id: string;
+          print_method: Database["public"]["Enums"]["print_method"];
+          pricing_mode: Database["public"]["Enums"]["pricing_mode"];
+          minimum_quantity: number;
+          base_price_cents: number;
+          setup_fee_cents: number;
+          turnaround_days: number;
+          supports_local_pickup: boolean;
+          supports_shipping: boolean;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          provider_profile_id: string;
+          print_method: Database["public"]["Enums"]["print_method"];
+          pricing_mode?: Database["public"]["Enums"]["pricing_mode"];
+          minimum_quantity?: number;
+          base_price_cents?: number;
+          setup_fee_cents?: number;
+          turnaround_days?: number;
+          supports_local_pickup?: boolean;
+          supports_shipping?: boolean;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          pricing_mode?: Database["public"]["Enums"]["pricing_mode"];
+          minimum_quantity?: number;
+          base_price_cents?: number;
+          setup_fee_cents?: number;
+          turnaround_days?: number;
+          supports_local_pickup?: boolean;
+          supports_shipping?: boolean;
+          notes?: string | null;
+          updated_at?: string;
+        };
+      };
       merchant_orders: {
         Row: {
           id: string;
@@ -326,6 +371,8 @@ export type Database = {
           local_pickup_preferred: boolean;
           needed_by_date: string | null;
           notes: string | null;
+          selected_provider_profile_id: string | null;
+          selected_estimated_price_cents: number | null;
           created_at: string;
           updated_at: string;
         };
@@ -338,6 +385,8 @@ export type Database = {
           local_pickup_preferred?: boolean;
           needed_by_date?: string | null;
           notes?: string | null;
+          selected_provider_profile_id?: string | null;
+          selected_estimated_price_cents?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -348,6 +397,8 @@ export type Database = {
           local_pickup_preferred?: boolean;
           needed_by_date?: string | null;
           notes?: string | null;
+          selected_provider_profile_id?: string | null;
+          selected_estimated_price_cents?: number | null;
           updated_at?: string;
         };
       };

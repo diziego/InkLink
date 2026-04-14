@@ -104,10 +104,10 @@ export function MerchantCatalogClient({ submittedOrderId, submittedOrder }: Merc
       : CATALOG_PRODUCTS.filter((p) => p.garmentType === activeTab);
 
   // After a form submission the server redirects to /merchant?orderId=...
-  // Show the success view immediately instead of resetting to the catalog.
+  // Show the compact order context bar; the recommendations section above the
+  // fold is the merchant's primary next action (choosing a provider).
   if (submittedOrderId) return (
-    <OrderSuccessView
-      orderId={submittedOrderId}
+    <OrderContextBar
       order={submittedOrder}
       mockupSnapshotUrl={mockupSnapshotUrl}
       cartItems={cartItems}
@@ -164,7 +164,7 @@ export function MerchantCatalogClient({ submittedOrderId, submittedOrder }: Merc
               mockupColorHex ?? selectedProduct.availableColors[0]?.hex ?? "#000000",
             printAreaName,
             templateLabel,
-            quantity: 24,
+            quantity: 1,
           };
           setCartItems((prev) => [...prev, newItem]);
           setMockupSnapshotUrl(snapshotUrl);
@@ -725,61 +725,91 @@ function CheckoutView({
 }
 
 
-// ─── Order success view ───────────────────────────────────────────────────────
+// ─── Order context bar ────────────────────────────────────────────────────────
+// Compact one-line summary shown after order submission.
+// The merchant's primary next action is provider comparison + selection, so
+// this bar stays out of the way while keeping order details accessible on demand.
 
-function OrderSuccessView({
-  orderId: _orderId,
+function OrderContextBar({
   order,
   mockupSnapshotUrl,
   cartItems,
 }: {
-  orderId: string;
   order: MerchantOrder | null;
   mockupSnapshotUrl: string;
   cartItems: CartItem[];
 }) {
-  const [showDetails, setShowDetails] = useState(true);
+  const [showDetails, setShowDetails] = useState(false);
+
+  if (!order) return null;
+
+  const item = order.items[0];
+
+  const garmentLabel: Record<string, string> = {
+    t_shirt: "T-Shirt",
+    long_sleeve: "Long Sleeve",
+    hoodie: "Hoodie",
+    crewneck: "Crewneck",
+    tank: "Tank",
+    tote: "Tote",
+    hat: "Hat",
+  };
+
+  const goalLabel: Record<string, string> = {
+    local_first: "Local first",
+    fastest_turnaround: "Fastest turnaround",
+    lowest_cost: "Lowest cost",
+    premium_blank: "Premium blank",
+  };
+
+  const summaryParts = [
+    item ? (garmentLabel[item.garmentType] ?? item.garmentType) : null,
+    item ? `${item.quantity} ${item.quantity === 1 ? "unit" : "units"}` : null,
+    item ? (item.printMethod?.toUpperCase() ?? "DTG") : "DTG",
+    order.fulfillmentZip ? `ZIP ${order.fulfillmentZip}` : null,
+    goalLabel[order.fulfillmentGoal] ?? order.fulfillmentGoal,
+  ].filter(Boolean);
 
   return (
-    <div className="py-16">
-      <div className="mx-auto max-w-md text-center">
-        <div className="mb-4 text-5xl">✓</div>
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-600">
-          Order submitted
-        </p>
-        <h2 className="mt-2 text-3xl font-semibold text-zinc-950">
-          Your order is being routed
-        </h2>
-        <p className="mt-4 text-sm leading-6 text-zinc-600">
-          Your order has been saved and sent to your top-matched local providers.
-          You&apos;ll see status updates as providers accept and move it through
-          production.
-        </p>
-        <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
+    <div className="mt-6 rounded-xl border border-zinc-200 bg-white shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
+        <div className="flex items-center gap-3">
+          <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs text-emerald-700">
+            ✓
+          </span>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">
+              Order saved
+            </p>
+            <p className="mt-0.5 text-sm text-zinc-700">
+              {summaryParts.join(" · ")}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-4 text-sm">
+          <button
+            type="button"
+            onClick={() => setShowDetails((v) => !v)}
+            className="text-zinc-500 underline-offset-2 hover:text-zinc-900 hover:underline"
+          >
+            {showDetails ? "Hide details" : "View full order details"}
+          </button>
           <a
             href="/merchant"
-            className="inline-flex h-11 items-center justify-center rounded-md bg-zinc-950 px-6 text-sm font-semibold text-white hover:bg-zinc-800"
+            className="text-zinc-500 underline-offset-2 hover:text-zinc-900 hover:underline"
           >
-            Start a new order
+            New order
           </a>
-          <button
-            onClick={() => setShowDetails((v) => !v)}
-            className="inline-flex h-11 items-center justify-center rounded-md border border-zinc-300 px-6 text-sm font-semibold text-zinc-700 hover:bg-zinc-50"
-          >
-            {showDetails ? "Hide order details" : "View order details"}
-          </button>
         </div>
       </div>
 
       {showDetails && (
-        <div className="mx-auto mt-10 max-w-xl rounded-xl border border-zinc-200 bg-white shadow-sm">
-          {order ? (
-            <OrderSummaryCard order={order} mockupSnapshotUrl={mockupSnapshotUrl} cartItems={cartItems} />
-          ) : (
-            <div className="p-6 text-center text-sm text-zinc-500">
-              Order details unavailable. Check your order history below.
-            </div>
-          )}
+        <div className="border-t border-zinc-100">
+          <OrderSummaryCard
+            order={order}
+            mockupSnapshotUrl={mockupSnapshotUrl}
+            cartItems={cartItems}
+          />
         </div>
       )}
     </div>
@@ -819,6 +849,7 @@ function OrderSummaryCard({
     draft: "Draft",
     ready_for_routing: "Ready for routing",
     routed: "Routed",
+    provider_selected: "Provider selected",
     accepted: "Accepted",
     in_production: "In production",
     ready: "Ready",

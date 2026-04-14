@@ -25,6 +25,7 @@ const statusStyles: Record<string, string> = {
   draft: "bg-zinc-100 text-zinc-600",
   ready_for_routing: "bg-slate-100 text-slate-700",
   routed: "bg-slate-100 text-slate-700",
+  provider_selected: "bg-indigo-100 text-indigo-800",
   accepted: "bg-blue-100 text-blue-800",
   in_production: "bg-amber-100 text-amber-800",
   ready: "bg-green-100 text-green-800",

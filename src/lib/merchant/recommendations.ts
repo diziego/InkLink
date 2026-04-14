@@ -5,6 +5,12 @@ import {
 } from "@/lib/supabase";
 import { recommendProvidersForOrder } from "@/lib/routing";
 import { precomputeDistances } from "@/lib/geo/distance";
+import {
+  estimateOrderPrice,
+  loadPricingProfilesForProviders,
+  type PriceEstimate,
+  type ProviderPricingProfile,
+} from "@/lib/provider/pricing";
 import type {
   BlankInventoryItem,
   MerchantOrder,
@@ -13,6 +19,12 @@ import type {
   ProviderQualityMetrics,
 } from "@/types";
 import type { Database } from "@/types/database";
+import type { ProviderRecommendation } from "@/lib/routing";
+
+export type ProviderRecommendationWithPricing = ProviderRecommendation & {
+  pricingProfile: ProviderPricingProfile | null;
+  priceEstimate: PriceEstimate | null;
+};
 
 type ProviderProfileRow = Database["public"]["Tables"]["provider_profiles"]["Row"];
 type ProviderCapabilityRow =
@@ -117,7 +129,10 @@ export async function loadMerchantProviderData(): Promise<MerchantProviderData> 
   };
 }
 
-export async function recommendLiveProvidersForOrder(order: MerchantOrder) {
+export async function recommendLiveProvidersForOrder(order: MerchantOrder): Promise<{
+  providerData: MerchantProviderData;
+  recommendations: ProviderRecommendationWithPricing[];
+}> {
   const providerData = await loadMerchantProviderData();
 
   if (providerData.providers.length === 0) {
@@ -137,16 +152,40 @@ export async function recommendLiveProvidersForOrder(order: MerchantOrder) {
     await precomputeDistances(order.fulfillmentZip, providerZips);
   }
 
-  return {
-    providerData,
-    recommendations: recommendProvidersForOrder({
-      order,
-      providers: providerData.providers,
-      capabilities: providerData.capabilities,
-      blankInventory: providerData.inventory,
-      qualityMetrics: providerData.qualityMetrics,
-    }),
-  };
+  const baseRecommendations = recommendProvidersForOrder({
+    order,
+    providers: providerData.providers,
+    capabilities: providerData.capabilities,
+    blankInventory: providerData.inventory,
+    qualityMetrics: providerData.qualityMetrics,
+  });
+
+  // Load pricing profiles for the top matched providers only
+  const matchedProviderIds = baseRecommendations.map((r) => r.providerId);
+  const pricingMap = await loadPricingProfilesForProviders(matchedProviderIds);
+
+  // Determine the primary print method from the order (default dtg)
+  const primaryPrintMethod =
+    order.items[0]?.printMethod ?? "dtg";
+
+  // Determine quantity for estimate
+  const quantity = order.items.reduce((sum, item) => sum + item.quantity, 0);
+
+  const recommendations: ProviderRecommendationWithPricing[] =
+    baseRecommendations.map((rec) => {
+      const profiles = pricingMap.get(rec.providerId) ?? [];
+      const pricingProfile =
+        profiles.find((p) => p.printMethod === primaryPrintMethod) ??
+        profiles[0] ??
+        null;
+      const priceEstimate = pricingProfile
+        ? estimateOrderPrice(pricingProfile, quantity)
+        : null;
+
+      return { ...rec, pricingProfile, priceEstimate };
+    });
+
+  return { providerData, recommendations };
 }
 
 function adaptProviderProfileRow(row: ProviderProfileRow): ProviderProfile {

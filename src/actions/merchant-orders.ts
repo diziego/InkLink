@@ -2,7 +2,12 @@
 
 import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth/helpers";
-import { assignTopProviders, saveMerchantOrder, saveCartOrder } from "@/lib/merchant/orders";
+import {
+  assignTopProviders,
+  saveMerchantOrder,
+  saveCartOrder,
+  selectProviderForOrder,
+} from "@/lib/merchant/orders";
 import type { SaveCartOrderInput } from "@/lib/merchant/orders";
 import {
   hasSupabaseBrowserEnv,
@@ -162,4 +167,29 @@ export async function submitCartAction(formData: FormData) {
   }
 
   redirect(`/merchant?orderId=${orderId}`);
+}
+
+export async function selectProviderAction(formData: FormData): Promise<void> {
+  if (!hasSupabaseBrowserEnv() || !hasSupabaseServiceRoleEnv()) {
+    redirect("/merchant");
+  }
+
+  const user = await requireRole("merchant");
+
+  const orderId = String(formData.get("orderId") ?? "").trim();
+  const providerProfileId = String(
+    formData.get("providerProfileId") ?? "",
+  ).trim();
+  const rawEstimate = parseInt(
+    String(formData.get("estimatedPriceCents") ?? ""),
+    10,
+  );
+  const estimatedPriceCents = isNaN(rawEstimate) ? null : rawEstimate;
+
+  if (!orderId || !providerProfileId) {
+    redirect("/merchant");
+  }
+
+  await selectProviderForOrder(orderId, user.id, providerProfileId, estimatedPriceCents);
+  redirect(`/merchant?orderId=${orderId}&providerSelected=1`);
 }

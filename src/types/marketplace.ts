@@ -35,6 +35,7 @@ export type OrderStatus =
   | "draft"
   | "ready_for_routing"
   | "routed"
+  | "provider_selected"
   | "accepted"
   | "in_production"
   | "ready"
@@ -149,4 +150,6 @@ export type MerchantOrder = {
   items: OrderItem[];
   notes: string;
   createdAt: string;
+  selectedProviderProfileId?: string | null;
+  selectedEstimatedPriceCents?: number | null;
 };

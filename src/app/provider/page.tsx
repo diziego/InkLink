@@ -11,6 +11,7 @@ import { acceptAssignmentAction, declineAssignmentAction } from "@/actions/provi
 import { advanceOrderStatusAction } from "@/actions/provider-order-status";
 import { saveProviderInventoryAction } from "@/actions/provider-inventory";
 import { saveProviderOnboardingAction } from "@/actions/provider-onboarding";
+import { savePricingProfileAction } from "@/actions/provider-pricing";
 import {
   getGarmentTypeOptionLabel,
   getPrintMethodOptionLabel,
@@ -31,6 +32,11 @@ import {
   loadProviderAssignments,
   type ProviderAssignment,
 } from "@/lib/provider/orders";
+import {
+  loadProviderPricingProfiles,
+  type ProviderPricingProfile,
+} from "@/lib/provider/pricing";
+import type { PrintMethod } from "@/types";
 
 export const metadata: Metadata = {
   title: "Provider | PrintPair",
@@ -58,12 +64,19 @@ export default async function ProviderPage({
     loadProviderInventoryData(user.id),
   ]);
 
-  // Load incoming and accepted order assignments if a provider profile exists
+  // Load incoming assignments and pricing profiles if a provider profile exists
   const providerProfileId = await getProviderProfileId(user.id);
-  const { pending: pendingAssignments, accepted: acceptedAssignments } =
+  const [
+    { pending: pendingAssignments, accepted: acceptedAssignments },
+    pricingProfiles,
+  ] = await Promise.all([
     providerProfileId
-      ? await loadProviderAssignments(providerProfileId)
-      : { pending: [], accepted: [] };
+      ? loadProviderAssignments(providerProfileId)
+      : Promise.resolve({ pending: [], accepted: [] }),
+    providerProfileId
+      ? loadProviderPricingProfiles(providerProfileId)
+      : Promise.resolve([] as ProviderPricingProfile[]),
+  ]);
   const savedFlag = getStringParam(resolvedSearchParams.saved);
   const sourceFlag = getStringParam(resolvedSearchParams.source);
 
@@ -145,6 +158,25 @@ export default async function ProviderPage({
         <section className="pb-8">
           <div className="mb-6">
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-zinc-500">
+              Pricing
+            </p>
+            <h2 className="mt-2 text-3xl font-semibold">Pricing profiles</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">
+              Set your per-unit pricing for each print method you support.
+              Merchants see instant estimates on their recommendation cards
+              before selecting a provider.
+            </p>
+          </div>
+          <ProviderPricingForm
+            supportedMethods={onboardingData.values.printMethods as PrintMethod[]}
+            pricingProfiles={pricingProfiles}
+            hasProviderProfile={!!providerProfileId}
+          />
+        </section>
+
+        <section className="pb-8">
+          <div className="mb-6">
+            <p className="text-sm font-medium uppercase tracking-[0.2em] text-zinc-500">
               Merchant-facing blanks
             </p>
             <h2 className="mt-2 text-3xl font-semibold">
@@ -205,6 +237,15 @@ function PersistenceNotice({
       <MockNotice>
         Provider inventory rows saved to Supabase for merchant-facing blank
         matching.
+      </MockNotice>
+    );
+  }
+
+  if (savedFlag === "pricing" && sourceFlag === "supabase") {
+    return (
+      <MockNotice>
+        Pricing profiles saved. Merchants will now see instant price estimates
+        when your shop appears in recommendations.
       </MockNotice>
     );
   }
@@ -865,4 +906,158 @@ function formatDateTime(value: string) {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
+}
+
+const PRINT_METHOD_LABELS: Record<PrintMethod, string> = {
+  dtg: "Direct-to-garment (DTG)",
+  dtf: "Direct-to-film (DTF)",
+  screen_print: "Screen print",
+  embroidery: "Embroidery",
+  heat_transfer: "Heat transfer",
+};
+
+const PRICING_MODE_OPTIONS: { value: string; label: string }[] = [
+  { value: "instant", label: "Instant — price shown immediately to merchant" },
+  { value: "hybrid", label: "Hybrid — instant estimate + manual confirmation" },
+  { value: "manual_quote", label: "Manual quote — merchant requests a quote" },
+];
+
+function ProviderPricingForm({
+  supportedMethods,
+  pricingProfiles,
+  hasProviderProfile,
+}: {
+  supportedMethods: PrintMethod[];
+  pricingProfiles: ProviderPricingProfile[];
+  hasProviderProfile: boolean;
+}) {
+  if (!hasProviderProfile) {
+    return (
+      <Card className="shadow-sm">
+        <p className="text-sm leading-6 text-zinc-600">
+          Save provider onboarding first. Pricing profiles attach to the live
+          provider record after it exists.
+        </p>
+      </Card>
+    );
+  }
+
+  if (supportedMethods.length === 0) {
+    return (
+      <Card className="shadow-sm">
+        <p className="text-sm leading-6 text-zinc-600">
+          Select at least one supported print method in your onboarding profile
+          to configure pricing.
+        </p>
+      </Card>
+    );
+  }
+
+  const profilesByMethod = new Map(
+    pricingProfiles.map((p) => [p.printMethod, p]),
+  );
+
+  return (
+    <form action={savePricingProfileAction} className="grid gap-5">
+      {supportedMethods.map((method) => {
+        const existing = profilesByMethod.get(method);
+        return (
+          <Card key={method} className="shadow-sm">
+            <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-500">
+              {PRINT_METHOD_LABELS[method] ?? method.replaceAll("_", " ")}
+            </h3>
+            <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <FormField label="Pricing mode" className="sm:col-span-2 lg:col-span-3">
+                <select
+                  name={`pricing_${method}_mode`}
+                  defaultValue={existing?.pricingMode ?? "instant"}
+                  className={inputClassName}
+                >
+                  {PRICING_MODE_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+              <FormField label="Base price per unit ($)">
+                <input
+                  name={`pricing_${method}_base_price`}
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  defaultValue={
+                    existing ? (existing.basePriceCents / 100).toFixed(2) : "0.00"
+                  }
+                  className={inputClassName}
+                />
+              </FormField>
+              <FormField label="Setup fee ($)">
+                <input
+                  name={`pricing_${method}_setup_fee`}
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  defaultValue={
+                    existing ? (existing.setupFeeCents / 100).toFixed(2) : "0.00"
+                  }
+                  className={inputClassName}
+                />
+              </FormField>
+              <FormField label="Minimum quantity">
+                <input
+                  name={`pricing_${method}_min_qty`}
+                  type="number"
+                  min="1"
+                  defaultValue={existing?.minimumQuantity ?? 1}
+                  className={inputClassName}
+                />
+              </FormField>
+              <FormField label="Turnaround (days)">
+                <input
+                  name={`pricing_${method}_turnaround`}
+                  type="number"
+                  min="1"
+                  defaultValue={existing?.turnaroundDays ?? 5}
+                  className={inputClassName}
+                />
+              </FormField>
+              <div className="flex flex-col gap-3 sm:col-span-2">
+                <ToggleField
+                  label="Supports local pickup"
+                  name={`pricing_${method}_local_pickup`}
+                  checked={existing?.supportsLocalPickup ?? false}
+                />
+                <ToggleField
+                  label="Supports shipping"
+                  name={`pricing_${method}_shipping`}
+                  checked={existing?.supportsShipping ?? true}
+                />
+              </div>
+              <FormField label="Notes" className="sm:col-span-2 lg:col-span-3">
+                <textarea
+                  name={`pricing_${method}_notes`}
+                  defaultValue={existing?.notes ?? ""}
+                  className={textareaClassName}
+                  rows={2}
+                />
+              </FormField>
+            </div>
+          </Card>
+        );
+      })}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <button
+          type="submit"
+          className="inline-flex h-11 items-center justify-center rounded-md bg-indigo-950 px-5 text-sm font-semibold text-white transition hover:bg-indigo-900"
+        >
+          Save pricing profiles
+        </button>
+        <p className="text-sm text-zinc-600">
+          Saved pricing is shown to merchants as instant estimates on
+          recommendation cards.
+        </p>
+      </div>
+    </form>
+  );
 }

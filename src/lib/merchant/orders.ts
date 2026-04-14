@@ -284,6 +284,27 @@ export async function loadMerchantOrderHistory(
   });
 }
 
+export async function selectProviderForOrder(
+  orderId: string,
+  profileId: string,
+  providerProfileId: string,
+  estimatedPriceCents: number | null,
+): Promise<void> {
+  const supabase = createSupabaseServiceRoleClient();
+
+  const result = await (supabase.from("merchant_orders") as any)
+    .update({
+      status: "provider_selected",
+      selected_provider_profile_id: providerProfileId,
+      selected_estimated_price_cents: estimatedPriceCents ?? null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", orderId)
+    .eq("profile_id", profileId);
+
+  if (result.error) throw new Error(result.error.message);
+}
+
 function adaptOrderRow(
   row: MerchantOrderRow,
   items: MerchantOrderItemRow[],
@@ -298,6 +319,8 @@ function adaptOrderRow(
     neededByDate: row.needed_by_date ?? "",
     createdAt: row.created_at,
     notes: row.notes ?? "",
+    selectedProviderProfileId: row.selected_provider_profile_id ?? null,
+    selectedEstimatedPriceCents: row.selected_estimated_price_cents ?? null,
     items: items.map(adaptItemRow),
   };
 }

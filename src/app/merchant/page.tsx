@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { MockNotice } from "@/components/ui/mock-notice";
 import {
   recommendLiveProvidersForOrder,
+  type ProviderRecommendationWithPricing,
 } from "@/lib/merchant/recommendations";
 import {
   loadMerchantOrderById,
@@ -15,6 +16,8 @@ import {
   type MerchantOrderSummary,
 } from "@/lib/merchant/orders";
 import { MerchantCatalogClient } from "./_catalog";
+import { ProviderSelectedModal } from "./_provider-selected-modal";
+import { selectProviderAction } from "@/actions/merchant-orders";
 import {
   type ProviderRecommendation,
   type RoutingFactor,
@@ -23,6 +26,7 @@ import type {
   FulfillmentGoal,
   GarmentType,
   MerchantOrder,
+  OrderStatus,
 } from "@/types";
 
 export const metadata: Metadata = {
@@ -82,6 +86,9 @@ export default async function MerchantPage({ searchParams }: MerchantPageProps) 
     typeof resolvedSearchParams.orderId === "string"
       ? resolvedSearchParams.orderId
       : "";
+
+  // Success flag set by selectProviderAction redirect
+  const providerSelectedFlag = resolvedSearchParams.providerSelected === "1";
   let savedOrder: MerchantOrder | null = null;
   if (orderId && supabaseReady) {
     savedOrder = await loadMerchantOrderById(orderId, user.id);
@@ -124,10 +131,20 @@ export default async function MerchantPage({ searchParams }: MerchantPageProps) 
   const hasVerifiedProviders = providerData.providers.length > 0;
 
   // Recommendations are only shown when a specific saved order is loaded
-  const recommendations = savedOrder
+  const recommendations: ProviderRecommendationWithPricing[] = savedOrder
     ? recommendationData.recommendations.slice(0, 3)
     : [];
   const topRecommendation = recommendations[0] ?? null;
+
+  // Find the selected recommendation to populate the confirmation modal
+  const selectedRecommendation =
+    providerSelectedFlag &&
+    savedOrder?.status === "provider_selected" &&
+    savedOrder.selectedProviderProfileId
+      ? (recommendations.find(
+          (r) => r.providerId === savedOrder!.selectedProviderProfileId,
+        ) ?? null)
+      : null;
 
   // Load order history
   let orderHistory: MerchantOrderSummary[] = [];
@@ -139,6 +156,26 @@ export default async function MerchantPage({ searchParams }: MerchantPageProps) 
     <main className="min-h-screen bg-zinc-50 px-6 py-8 text-zinc-950 sm:px-10 lg:px-16">
       <div className="mx-auto max-w-6xl">
         <AppHeader />
+
+        {/* Provider selection confirmation modal */}
+        {selectedRecommendation ? (
+          <ProviderSelectedModal
+            providerName={selectedRecommendation.providerName}
+            priceLabel={
+              selectedRecommendation.priceEstimate?.estimatedTotalCents != null
+                ? `~$${(selectedRecommendation.priceEstimate.estimatedTotalCents / 100).toFixed(2)}`
+                : "—"
+            }
+            isManualQuote={
+              selectedRecommendation.priceEstimate?.pricingMode ===
+              "manual_quote"
+            }
+            turnaroundDays={
+              selectedRecommendation.operationalNotes.estimatedTurnaroundDays
+            }
+            orderId={orderId}
+          />
+        ) : null}
 
         <div className="mt-6">
           <MerchantNotice
@@ -158,19 +195,25 @@ export default async function MerchantPage({ searchParams }: MerchantPageProps) 
 
         {/* Recommendations — visible only after an order has been saved */}
         {savedOrder ? (
-          <section className="border-t border-zinc-200 py-14">
-            <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <p className="text-sm font-medium uppercase tracking-[0.2em] text-zinc-500">
-                  Ranked recommendations
-                </p>
-                <h2 className="mt-2 text-3xl font-semibold text-zinc-950">
-                  Top providers for this order
-                </h2>
-              </div>
-              <p className="text-sm text-zinc-500">
-                {`Saved order · ${(savedOrder.items[0]?.garmentType ?? "t_shirt").replace(/_/g, " ")} · DTG`}
+          <section className="pt-10 pb-14">
+            <div className="mb-8">
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-600">
+                {savedOrder.status === "provider_selected"
+                  ? "Provider selected"
+                  : "Matching providers"}
               </p>
+              <h2 className="mt-2 text-3xl font-semibold text-zinc-950">
+                {savedOrder.status === "provider_selected"
+                  ? "Your selected provider"
+                  : "Choose your print partner"}
+              </h2>
+              {savedOrder.status !== "provider_selected" && (
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-600">
+                  We matched your order with the best-fit providers based on
+                  print method, turnaround, location, and pricing. Compare your
+                  options below and select the provider you want to work with.
+                </p>
+              )}
             </div>
 
             {topRecommendation ? (
@@ -184,6 +227,11 @@ export default async function MerchantPage({ searchParams }: MerchantPageProps) 
                     key={recommendation.providerId}
                     rank={index + 1}
                     recommendation={recommendation}
+                    orderId={orderId}
+                    orderStatus={savedOrder!.status}
+                    selectedProviderProfileId={
+                      savedOrder!.selectedProviderProfileId ?? null
+                    }
                   />
                 ))}
               </div>
@@ -261,6 +309,8 @@ function MerchantNotice({
 
   return null;
 }
+
+// ─── Order status message ─────────────────────────────────────────────────────
 
 // ─── Order history ────────────────────────────────────────────────────────────
 
@@ -397,9 +447,15 @@ function FirstRankSummary({
 function RecommendationCard({
   rank,
   recommendation,
+  orderId,
+  orderStatus,
+  selectedProviderProfileId,
 }: {
   rank: number;
-  recommendation: ProviderRecommendation;
+  recommendation: ProviderRecommendationWithPricing;
+  orderId: string;
+  orderStatus: OrderStatus;
+  selectedProviderProfileId: string | null;
 }) {
   const notes = recommendation.operationalNotes;
   const isTopRank = rank === 1;
@@ -412,6 +468,19 @@ function RecommendationCard({
     .sort((a, b) => b.weightedScore - a.weightedScore)
     .slice(0, 3);
 
+  const isSelected =
+    orderStatus === "provider_selected" &&
+    selectedProviderProfileId === recommendation.providerId;
+  const anotherIsSelected =
+    orderStatus === "provider_selected" &&
+    selectedProviderProfileId !== recommendation.providerId;
+
+  const priceLabel = recommendation.priceEstimate
+    ? recommendation.priceEstimate.estimatedTotalCents !== null
+      ? `~$${(recommendation.priceEstimate.estimatedTotalCents / 100).toFixed(2)}`
+      : "Manual quote"
+    : "—";
+
   return (
     <Card
       className={
@@ -423,6 +492,7 @@ function RecommendationCard({
           <div className="flex flex-wrap items-center gap-2">
             <Badge>Rank {rank}</Badge>
             {isTopRank ? <Badge>Best current fit</Badge> : null}
+            {isSelected ? <Badge tone="brand">Selected</Badge> : null}
           </div>
           <h3 className="mt-1 text-2xl font-semibold">
             {recommendation.providerName}
@@ -431,12 +501,33 @@ function RecommendationCard({
             {recommendation.explanation}
           </p>
         </div>
-        <div className="rounded-md bg-zinc-950 px-5 py-4 text-center text-white">
-          <p className="text-xs uppercase tracking-[0.16em] text-zinc-400">
-            Match rating
-          </p>
-          <p className="text-3xl font-semibold">{merchantScore}</p>
-          <p className="mt-1 text-sm text-zinc-400">out of 10</p>
+        <div className="flex shrink-0 flex-col gap-3">
+          <div className="rounded-md bg-zinc-950 px-5 py-4 text-center text-white">
+            <p className="text-xs uppercase tracking-[0.16em] text-zinc-400">
+              Match rating
+            </p>
+            <p className="text-3xl font-semibold">{merchantScore}</p>
+            <p className="mt-1 text-sm text-zinc-400">out of 10</p>
+          </div>
+          {isSelected ? (
+            <div className="rounded-md border border-indigo-200 bg-indigo-50 px-4 py-3 text-center">
+              <p className="text-xs uppercase tracking-[0.16em] text-indigo-600">
+                Est. total
+              </p>
+              <p className="mt-1 text-lg font-semibold text-indigo-900">
+                {priceLabel}
+              </p>
+            </div>
+          ) : !anotherIsSelected ? (
+            <SelectProviderForm
+              orderId={orderId}
+              providerProfileId={recommendation.providerId}
+              estimatedPriceCents={
+                recommendation.priceEstimate?.estimatedTotalCents ?? null
+              }
+              priceLabel={priceLabel}
+            />
+          ) : null}
         </div>
       </div>
 
@@ -461,6 +552,7 @@ function RecommendationCard({
           label="Pickup"
           value={notes.localPickupSupported ? "Supported" : "Not supported"}
         />
+        <CompactNote label="Est. price" value={priceLabel} />
       </div>
 
       <div className="mt-5">
@@ -527,6 +619,46 @@ function RecommendationCard({
         </div>
       </details>
     </Card>
+  );
+}
+
+function SelectProviderForm({
+  orderId,
+  providerProfileId,
+  estimatedPriceCents,
+  priceLabel,
+}: {
+  orderId: string;
+  providerProfileId: string;
+  estimatedPriceCents: number | null;
+  priceLabel: string;
+}) {
+  return (
+    <form action={selectProviderAction} className="flex flex-col gap-1">
+      <input type="hidden" name="orderId" value={orderId} />
+      <input type="hidden" name="providerProfileId" value={providerProfileId} />
+      {estimatedPriceCents !== null ? (
+        <input
+          type="hidden"
+          name="estimatedPriceCents"
+          value={estimatedPriceCents}
+        />
+      ) : null}
+      <div className="rounded-md border border-zinc-200 bg-zinc-50 px-4 py-2 text-center">
+        <p className="text-xs uppercase tracking-[0.14em] text-zinc-500">
+          Est. price
+        </p>
+        <p className="mt-0.5 text-base font-semibold text-zinc-900">
+          {priceLabel}
+        </p>
+      </div>
+      <button
+        type="submit"
+        className="inline-flex h-10 items-center justify-center rounded-md bg-indigo-950 px-4 text-sm font-semibold text-white transition hover:bg-indigo-900"
+      >
+        Select this provider
+      </button>
+    </form>
   );
 }
 

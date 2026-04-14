@@ -5,6 +5,7 @@ export type OrderStatus =
   | "draft"
   | "ready_for_routing"
   | "routed"
+  | "provider_selected"
   | "accepted"
   | "in_production"
   | "ready"
@@ -112,8 +113,12 @@ export async function loadProviderAssignments(
     };
   });
 
+  // Hide pending assignments for orders where the merchant has already selected
+  // a provider. Those orders require payment before entering the provider inbox.
   return {
-    pending: adapted.filter((a) => a.status === "pending"),
+    pending: adapted.filter(
+      (a) => a.status === "pending" && a.orderStatus !== "provider_selected",
+    ),
     accepted: adapted.filter((a) => a.status === "accepted"),
   };
 }
