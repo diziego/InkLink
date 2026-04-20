@@ -535,93 +535,28 @@ function MerchantProductionWorkspace({
   order: MerchantOrder;
   selectedRecommendation: PersistedProviderRecommendation | null;
 }) {
-  const isPickup = isPickupOrder(order);
-
   return (
     <div className="grid gap-5">
-      <ProductionStatusChips order={order} />
-      <ProductionHero
-        order={order}
-        selectedRecommendation={selectedRecommendation}
-      />
-
-      <div className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr] lg:items-start">
+      <div className="grid gap-5 lg:grid-cols-2 lg:items-stretch">
         <OrderTimeline order={order} />
-        <FulfillmentDetailsPanel order={order} />
+        <div className="grid gap-5 lg:h-full lg:grid-rows-[auto_1fr]">
+          <ProductionNowCard
+            order={order}
+            selectedRecommendation={selectedRecommendation}
+          />
+          <FulfillmentDetailsPanel order={order} />
+        </div>
       </div>
 
       <ProductionSummaryCard
         order={order}
         selectedRecommendation={selectedRecommendation}
       />
-
-      <div
-        className={`rounded-md border p-4 text-sm leading-6 shadow-sm ${
-          isPickup
-            ? "border-amber-200 bg-amber-50 text-amber-950"
-            : "border-violet-200 bg-violet-50 text-violet-950"
-        }`}
-      >
-        {isPickup
-          ? "Local pickup is the fulfillment path for this order. Pickup instructions and ready notes will stay attached to this paid order as the provider updates production."
-          : "Shipping is the fulfillment path for this order. Carrier, tracking, and shipping notes will stay attached to this paid order as the provider updates production."}
-      </div>
     </div>
   );
 }
 
-function ProductionStatusChips({ order }: { order: MerchantOrder }) {
-  const isPickup = isPickupOrder(order);
-  const currentLabel = getProductionStatusLabel(order)?.label ?? "In production";
-
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      <ProductionStatusChip
-        label="Paid"
-        tone="emerald"
-        icon={<CheckCircle2 className="h-4 w-4" />}
-      />
-      <ProductionStatusChip
-        label={isPickup ? "Pickup order" : "Shipping order"}
-        tone={isPickup ? "amber" : "violet"}
-        icon={
-          isPickup ? <MapPin className="h-4 w-4" /> : <Truck className="h-4 w-4" />
-        }
-      />
-      <ProductionStatusChip
-        label={currentLabel}
-        tone="zinc"
-        icon={<PackageCheck className="h-4 w-4" />}
-      />
-    </div>
-  );
-}
-
-function ProductionStatusChip({
-  label,
-  tone,
-  icon,
-}: {
-  label: string;
-  tone: "emerald" | "amber" | "violet" | "zinc";
-  icon: React.ReactNode;
-}) {
-  const className = {
-    emerald: "border-emerald-200 bg-emerald-50 text-emerald-800",
-    amber: "border-amber-200 bg-amber-50 text-amber-900",
-    violet: "border-violet-200 bg-violet-50 text-violet-900",
-    zinc: "border-zinc-300 bg-zinc-950 text-white",
-  }[tone];
-
-  return (
-    <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-semibold shadow-sm ${className}`}>
-      {icon}
-      {label}
-    </div>
-  );
-}
-
-function ProductionHero({
+function ProductionNowCard({
   order,
   selectedRecommendation,
 }: {
@@ -630,66 +565,68 @@ function ProductionHero({
 }) {
   const isPickup = isPickupOrder(order);
   const providerName = selectedRecommendation?.providerName ?? "your selected provider";
+  const currentLabel = getProductionStatusLabel(order)?.label ?? "In production";
 
   return (
-    <section
-      className={`overflow-hidden rounded-md border bg-white p-5 shadow-sm ${
+    <Card
+      className={`rounded-md bg-gradient-to-br from-white to-zinc-50 ${
         isPickup ? "border-amber-200" : "border-violet-200"
       }`}
     >
-      <div
-        className={`rounded-md border p-5 ${
-          isPickup
-            ? "border-amber-200 bg-gradient-to-br from-amber-50 via-white to-white"
-            : "border-violet-200 bg-gradient-to-br from-violet-50 via-white to-white"
-        }`}
-      >
-        <div className="grid gap-5 lg:grid-cols-[1fr_16rem] lg:items-center">
-          <div className="flex gap-4">
-            <IconCircle active tone={isPickup ? "amber" : "violet"}>
-              {isPickup ? (
-                <MapPin className="h-5 w-5" />
-              ) : (
-                <Truck className="h-5 w-5" />
-              )}
-            </IconCircle>
-            <div>
-              <p
-                className={`text-sm font-semibold uppercase tracking-[0.16em] ${
-                  isPickup ? "text-amber-700" : "text-violet-700"
-                }`}
-              >
-                {isPickup ? "Local pickup order" : "Shipping order"}
-              </p>
-              <h2 className="mt-2 text-3xl font-semibold text-zinc-950">
-                {isPickup
-                  ? "Your local print provider is preparing this order."
-                  : "Your print provider is preparing this shipment."}
-              </h2>
-              <p className="mt-3 max-w-3xl text-sm leading-6 text-zinc-700">
-                Payment is confirmed and {providerName} has this order in their
-                active production queue.{" "}
-                {isPickup
-                  ? "Pickup instructions and ready notes will appear here as production progresses."
-                  : "Carrier, tracking, and shipping notes will appear here as production progresses."}
-              </p>
-            </div>
-          </div>
-
-          <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700">
-              Paid and released
-            </p>
-            <p className="mt-2 text-2xl font-semibold text-emerald-950">
+      <div className="grid gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <p
+            className={`text-xs font-semibold uppercase tracking-[0.18em] ${
+              isPickup ? "text-amber-700" : "text-violet-700"
+            }`}
+          >
+            Delivery method · {isPickup ? "Pickup" : "Shipping"}
+          </p>
+          <div className="inline-flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-sm text-emerald-900">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-700">
+              Paid
+            </span>
+            <span className="font-semibold text-emerald-950">
               {formatProductionPrice(order)}
-            </p>
-            <p className="mt-1 text-sm leading-6 text-emerald-800">
-              Sent to provider queue after confirmed payment.
+            </span>
+          </div>
+        </div>
+
+        <div className="flex min-w-0 gap-3">
+          <div
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md border shadow-sm ${
+              isPickup
+                ? "border-amber-200 bg-amber-100 text-amber-800"
+                : "border-violet-200 bg-violet-100 text-violet-800"
+            }`}
+          >
+            {isPickup ? (
+              <MapPin className="h-4 w-4" />
+            ) : (
+              <Truck className="h-4 w-4" />
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <span className="inline-flex items-center rounded-full bg-zinc-950 px-3 py-1 text-xs font-semibold text-white shadow-sm">
+              {currentLabel}
+            </span>
+            <h2 className="mt-2 text-2xl font-semibold text-zinc-950">
+              What&apos;s happening now
+            </h2>
+            <h3 className="mt-3 text-xl font-semibold text-zinc-950">
+              {isPickup
+                ? "Your order is in production for pickup."
+                : "Your order is in production for shipment."}
+            </h3>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-700">
+              {isPickup
+                ? `Payment is confirmed and ${providerName} is preparing this order. Pickup instructions will appear once the order is ready.`
+                : `Payment is confirmed and ${providerName} is preparing this order. Tracking will appear once the shipment is created.`}
             </p>
           </div>
         </div>
       </div>
-    </section>
+    </Card>
   );
 }
 
@@ -698,7 +635,7 @@ function OrderTimeline({ order }: { order: MerchantOrder }) {
   if (steps.length === 0) return null;
 
   return (
-    <Card className="rounded-md border-zinc-200 bg-white">
+    <Card className="flex h-full flex-col rounded-md border-zinc-200 bg-white">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-500">
@@ -710,7 +647,7 @@ function OrderTimeline({ order }: { order: MerchantOrder }) {
         </div>
         <StatusBadge status={order.status} />
       </div>
-      <div className="mt-6 grid gap-0">
+      <div className="mt-5 flex flex-1 flex-col lg:justify-between">
         {steps.map((step, index) => (
           <div
             key={step.label}
@@ -720,42 +657,49 @@ function OrderTimeline({ order }: { order: MerchantOrder }) {
               {index < steps.length - 1 ? (
                 <span className="absolute top-10 h-full w-px bg-zinc-200" />
               ) : null}
-              <IconCircle active={step.state !== "upcoming"} tone={step.tone}>
+              <IconCircle
+                active={step.state !== "upcoming"}
+                tone={
+                  step.state === "complete"
+                    ? "emerald"
+                    : step.state === "current"
+                      ? "violet"
+                      : "zinc"
+                }
+              >
                 {step.icon}
               </IconCircle>
             </div>
             <div
-              className={`mb-3 rounded-md border px-4 py-3 ${
+              className={`mb-2 rounded-md border ${
                 step.state === "upcoming"
-                  ? "border-dashed border-zinc-200 bg-white text-zinc-400"
-                  : step.isCurrent
-                  ? step.tone === "amber"
-                    ? "border-amber-200 bg-amber-50"
-                    : step.tone === "violet"
-                      ? "border-violet-200 bg-violet-50"
-                      : "border-indigo-200 bg-indigo-50"
-                  : "border-zinc-200 bg-zinc-50/70"
+                  ? "border-dashed border-zinc-200 bg-white px-3 py-2 text-zinc-400"
+                  : step.state === "current"
+                    ? "border-violet-200 bg-violet-50 px-4 py-4"
+                    : "border-emerald-100 bg-emerald-50/50 px-3 py-2"
               }`}
             >
               <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <p
                     className={`text-sm font-semibold ${
-                      step.state === "upcoming" ? "text-zinc-500" : "text-zinc-950"
+                      step.state === "complete"
+                        ? "text-emerald-800"
+                        : step.state === "upcoming"
+                          ? "text-zinc-500"
+                          : "text-zinc-950"
                     }`}
                   >
                     {step.label}
                   </p>
-                  <p
-                    className={`mt-1 text-sm leading-6 ${
-                      step.state === "upcoming" ? "text-zinc-400" : "text-zinc-600"
-                    }`}
-                  >
-                    {step.description}
-                  </p>
+                  {step.isCurrent ? (
+                    <p className="mt-1 text-sm leading-6 text-zinc-600">
+                      {step.description}
+                    </p>
+                  ) : null}
                 </div>
                 {step.timestamp ? (
-                  <p className="shrink-0 text-xs font-medium uppercase tracking-[0.14em] text-zinc-500">
+                  <p className="shrink-0 text-xs font-medium uppercase tracking-[0.14em] text-zinc-400">
                     {formatTimelineDate(step.timestamp)}
                   </p>
                 ) : step.state === "upcoming" ? (
@@ -855,7 +799,7 @@ function FulfillmentDetailsPanel({ order }: { order: MerchantOrder }) {
 
   return (
     <Card
-      className={`rounded-md bg-gradient-to-br from-white to-zinc-50 ${
+      className={`h-full rounded-md bg-gradient-to-br from-white to-zinc-50 ${
         isPickup ? "border-amber-200" : "border-violet-200"
       }`}
     >
@@ -874,15 +818,15 @@ function FulfillmentDetailsPanel({ order }: { order: MerchantOrder }) {
                 isPickup ? "text-amber-700" : "text-violet-700"
               }`}
             >
-              {isPickup ? "Pickup details" : "Shipping details"}
+              {isPickup ? "Pickup details" : "Shipping method details"}
             </p>
             <h3 className="mt-2 text-2xl font-semibold text-zinc-950">
-              {isPickup ? "Local pickup handoff" : "Tracking and delivery"}
+              {isPickup ? "Local pickup handoff" : "Shipment details"}
             </h3>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-600">
               {isPickup
                 ? "Pickup instructions, ready notes, and production updates from your local provider."
-                : "Carrier, tracking, and delivery notes from your selected provider."}
+                : "Carrier and tracking details will appear after your provider creates the shipment."}
             </p>
           </div>
         </div>
@@ -932,12 +876,12 @@ function FulfillmentDetailsPanel({ order }: { order: MerchantOrder }) {
               <p className="text-sm font-semibold">
                 {isPickup
                   ? "Pickup details will appear here"
-                  : "Shipping details will appear here"}
+                  : "Shipment details will appear here"}
               </p>
               <p className="mt-1 text-sm leading-6 opacity-80">
                 {isPickup
                   ? "Your provider can add pickup instructions and a ready-for-pickup note as the order gets closer to handoff."
-                  : "Your provider can add carrier, tracking, and shipping notes as the order moves toward delivery."}
+                  : "Your provider can add carrier, tracking, and shipping notes after the shipment is created."}
               </p>
             </div>
           </div>
