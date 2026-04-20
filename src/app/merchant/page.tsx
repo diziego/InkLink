@@ -1,5 +1,18 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import {
+  CheckCircle2,
+  CircleDashed,
+  Clock3,
+  CreditCard,
+  Gauge,
+  MapPin,
+  PackageCheck,
+  Route,
+  Sparkles,
+  Truck,
+  WalletCards,
+} from "lucide-react";
 import { requireRole } from "@/lib/auth/helpers";
 import { hasSupabaseBrowserEnv, hasSupabaseServiceRoleEnv } from "@/lib/supabase";
 import { AppHeader } from "@/components/app-header";
@@ -113,6 +126,7 @@ export default async function MerchantPage({ searchParams }: MerchantPageProps) 
     localPickupPreferred: false,
     neededByDate: "",
     createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
     notes: "",
     items: [
       {
@@ -246,6 +260,8 @@ export default async function MerchantPage({ searchParams }: MerchantPageProps) 
               selectedRecommendation={selectedRecommendationForOrder}
             />
 
+            <OrderTimeline order={savedOrder} />
+
             {!isPaidOrder && topRecommendation ? (
               <FirstRankSummary recommendation={topRecommendation} />
             ) : null}
@@ -297,6 +313,89 @@ export default async function MerchantPage({ searchParams }: MerchantPageProps) 
   );
 }
 
+function OrderTimeline({ order }: { order: MerchantOrder }) {
+  const steps = getOrderTimelineSteps(order);
+  if (steps.length === 0) return null;
+
+  return (
+    <Card className="mb-5 overflow-hidden border-zinc-200 bg-white">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-500">
+            Order timeline
+          </p>
+          <h3 className="mt-2 text-2xl font-semibold text-zinc-950">
+            Current production milestones
+          </h3>
+        </div>
+        <StatusBadge status={order.status} />
+      </div>
+      <div className="mt-5 grid gap-3 md:grid-cols-2">
+        {steps.map((step) => (
+          <div
+            key={step.label}
+            className={`flex gap-3 rounded-2xl border px-4 py-3 ${
+              step.isCurrent
+                ? "border-indigo-200 bg-gradient-to-br from-indigo-50 to-white"
+                : "border-zinc-200 bg-zinc-50/70"
+            }`}
+          >
+            <IconCircle active={step.isCurrent}>{step.icon}</IconCircle>
+            <div>
+              <p className="text-sm font-semibold text-zinc-950">
+                {step.label}
+              </p>
+              <p className="mt-1 text-sm leading-6 text-zinc-600">
+                {step.description}
+              </p>
+              {step.timestamp ? (
+                <p className="mt-2 text-xs font-medium uppercase tracking-[0.14em] text-zinc-500">
+                  {formatTimelineDate(step.timestamp)}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="mt-4 text-xs leading-5 text-zinc-500">
+        Timeline uses existing order, payment, and queue-release timestamps.
+        Detailed per-status history can be added later if a full audit trail is
+        needed.
+      </p>
+    </Card>
+  );
+}
+
+function IconCircle({
+  children,
+  active = false,
+  tone = "indigo",
+}: {
+  children: React.ReactNode;
+  active?: boolean;
+  tone?: "indigo" | "emerald" | "zinc";
+}) {
+  const toneClassNames = {
+    indigo: active
+      ? "border-indigo-200 bg-indigo-950 text-white"
+      : "border-zinc-200 bg-white text-zinc-600",
+    emerald: active
+      ? "border-emerald-200 bg-emerald-700 text-white"
+      : "border-zinc-200 bg-white text-zinc-600",
+    zinc: active
+      ? "border-zinc-300 bg-zinc-950 text-white"
+      : "border-zinc-200 bg-white text-zinc-600",
+  };
+
+  return (
+    <div
+      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border shadow-sm shadow-zinc-950/10 ${toneClassNames[tone]}`}
+    >
+      {children}
+    </div>
+  );
+}
+
 function PaymentStatePanel({
   order,
   paymentState,
@@ -318,18 +417,25 @@ function PaymentStatePanel({
 
   if (isPaid) {
     return (
-      <Card className="mb-5 border-emerald-200 bg-emerald-50">
-        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-emerald-700">
-          Payment confirmed
-        </p>
-        <h3 className="mt-2 text-3xl font-semibold text-zinc-950">
-          Your order is officially in production.
-        </h3>
-        <p className="mt-3 max-w-3xl text-sm leading-6 text-zinc-700">
-          PrintPair confirmed payment and sent this order to {providerName}&apos;s
-          active queue. Your provider can now begin production and update status
-          from their workspace.
-        </p>
+      <Card className="mb-5 overflow-hidden border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-white">
+        <div className="flex gap-4">
+          <IconCircle active tone="emerald">
+            <CheckCircle2 className="h-5 w-5" />
+          </IconCircle>
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-emerald-700">
+              Payment confirmed
+            </p>
+            <h3 className="mt-2 text-3xl font-semibold text-zinc-950">
+              Your order is officially in production.
+            </h3>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-zinc-700">
+              PrintPair confirmed payment and sent this order to {providerName}
+              &apos;s active queue. Your provider can now begin production and
+              update status from their workspace.
+            </p>
+          </div>
+        </div>
       </Card>
     );
   }
@@ -340,18 +446,25 @@ function PaymentStatePanel({
       getNonPayableMessage(selectedRecommendation, checkoutHref);
 
     return (
-      <Card className="mb-5 border-indigo-200 bg-indigo-50">
-        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-indigo-700">
-          Payment pending
-        </p>
-        <h3 className="mt-2 text-2xl font-semibold text-zinc-950">
-          Pay to send this order into production.
-        </h3>
-        <p className="mt-3 max-w-3xl text-sm leading-6 text-zinc-700">
-          You&apos;ve selected {providerName}. Payment is the next step that
-          moves the order from provider selection into the provider&apos;s active
-          production queue.
-        </p>
+      <Card className="mb-5 border-indigo-200 bg-gradient-to-br from-indigo-50 via-white to-white">
+        <div className="flex gap-4">
+          <IconCircle active>
+            <CreditCard className="h-5 w-5" />
+          </IconCircle>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-indigo-700">
+              Payment pending
+            </p>
+            <h3 className="mt-2 text-2xl font-semibold text-zinc-950">
+              Pay to send this order into production.
+            </h3>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-zinc-700">
+              You&apos;ve selected {providerName}. Payment is the next step that
+              moves the order from provider selection into the provider&apos;s
+              active production queue.
+            </p>
+          </div>
+        </div>
         {paymentState === "processing" ? (
           <p className="mt-3 text-sm text-zinc-700">
             Payment is processing. This page will reflect the confirmed paid
@@ -372,8 +485,9 @@ function PaymentStatePanel({
           <div className="mt-5">
             <a
               href={checkoutHref}
-              className="inline-flex h-11 items-center justify-center rounded-md bg-indigo-950 px-5 text-sm font-semibold text-white transition hover:bg-indigo-900"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-indigo-950 px-5 text-sm font-semibold text-white shadow-sm shadow-indigo-950/20 transition hover:bg-indigo-900"
             >
+              <WalletCards className="h-4 w-4" />
               Pay now
             </a>
           </div>
@@ -508,11 +622,18 @@ function EmptyRecommendationState({
         : "Approve at least one provider in /admin, then reload this page to generate live recommendations.";
 
   return (
-    <Card>
-      <h3 className="text-2xl font-semibold">{title}</h3>
-      <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-600">
-        {description}
-      </p>
+    <Card className="border-dashed bg-gradient-to-br from-white to-zinc-50">
+      <div className="flex gap-4">
+        <IconCircle>
+          <Sparkles className="h-5 w-5" />
+        </IconCircle>
+        <div>
+          <h3 className="text-2xl font-semibold">{title}</h3>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-600">
+            {description}
+          </p>
+        </div>
+      </div>
     </Card>
   );
 }
@@ -531,19 +652,24 @@ function FirstRankSummary({
     .slice(0, 3);
 
   return (
-    <Card className="mb-5 border-emerald-200 bg-emerald-50 text-zinc-950">
+    <Card className="mb-5 border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-white text-zinc-950">
       <div className="grid gap-4 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-emerald-700">
-            Why this provider ranked first
-          </p>
-          <h3 className="mt-2 text-2xl font-semibold">
-            {recommendation.providerName}
-          </h3>
-          <p className="mt-2 text-sm leading-6 text-zinc-700">
-            Strongest signals from the routing logic, shown here in a simpler
-            merchant-friendly rating.
-          </p>
+        <div className="flex gap-4">
+          <IconCircle active tone="emerald">
+            <Sparkles className="h-5 w-5" />
+          </IconCircle>
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-emerald-700">
+              Why this provider ranked first
+            </p>
+            <h3 className="mt-2 text-2xl font-semibold">
+              {recommendation.providerName}
+            </h3>
+            <p className="mt-2 text-sm leading-6 text-zinc-700">
+              Strongest signals from the routing logic, shown here in a simpler
+              merchant-friendly rating.
+            </p>
+          </div>
         </div>
         <div className="grid gap-3 md:grid-cols-3">
           {strongestFactors.map((factor) => (
@@ -611,14 +737,26 @@ function RecommendationCard({
   return (
     <Card
       className={
-        isTopRank ? "border-emerald-200 shadow-sm" : "border-zinc-200 shadow-sm"
+        isTopRank
+          ? "border-emerald-200 bg-gradient-to-br from-white to-emerald-50/40"
+          : "border-zinc-200"
       }
     >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            {isPaidOrder ? <Badge tone="brand">Paid provider</Badge> : <Badge>Rank {rank}</Badge>}
-            {!isPaidOrder && isTopRank ? <Badge>Best current fit</Badge> : null}
+            {isPaidOrder ? (
+              <Badge tone="brand" icon={<CheckCircle2 className="h-3.5 w-3.5" />}>
+                Paid provider
+              </Badge>
+            ) : (
+              <Badge icon={<Sparkles className="h-3.5 w-3.5" />}>
+                Rank {rank}
+              </Badge>
+            )}
+            {!isPaidOrder && isTopRank ? (
+              <Badge tone="brand">Best current fit</Badge>
+            ) : null}
             {isSelected ? <Badge tone="brand">Selected</Badge> : null}
           </div>
           <h3 className="mt-1 text-2xl font-semibold">
@@ -629,7 +767,7 @@ function RecommendationCard({
           </p>
         </div>
         <div className="flex shrink-0 flex-col gap-3">
-          <div className="rounded-md bg-zinc-950 px-5 py-4 text-center text-white">
+          <div className="rounded-2xl bg-zinc-950 px-5 py-4 text-center text-white shadow-sm shadow-zinc-950/20">
             <p className="text-xs uppercase tracking-[0.16em] text-zinc-400">
               Match rating
             </p>
@@ -637,7 +775,7 @@ function RecommendationCard({
             <p className="mt-1 text-sm text-zinc-400">out of 10</p>
           </div>
           {isSelected ? (
-            <div className="rounded-md border border-indigo-200 bg-indigo-50 px-4 py-3 text-center">
+            <div className="rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-center">
               <p className="text-xs uppercase tracking-[0.16em] text-indigo-600">
                 Est. total
               </p>
@@ -659,24 +797,33 @@ function RecommendationCard({
         <CompactNote
           label="Turnaround"
           value={`${notes.estimatedTurnaroundDays} days`}
+          icon={<Clock3 className="h-3.5 w-3.5" />}
         />
         <CompactNote
           label="Shipping"
           value={`$${notes.estimatedShippingCostUsd.toFixed(2)}`}
+          icon={<Truck className="h-3.5 w-3.5" />}
         />
         <CompactNote
           label="Distance"
           value={`${notes.estimatedDistanceMiles} mi`}
+          icon={<MapPin className="h-3.5 w-3.5" />}
         />
         <CompactNote
           label="Capacity"
           value={`${notes.availableCapacityUnits}/${notes.requestedUnits} units`}
+          icon={<Gauge className="h-3.5 w-3.5" />}
         />
         <CompactNote
           label="Pickup"
           value={notes.localPickupSupported ? "Supported" : "Not supported"}
+          icon={<PackageCheck className="h-3.5 w-3.5" />}
         />
-        <CompactNote label="Est. price" value={priceLabel} />
+        <CompactNote
+          label="Est. price"
+          value={priceLabel}
+          icon={<CreditCard className="h-3.5 w-3.5" />}
+        />
       </div>
 
       {!isPaidOrder ? (
@@ -802,6 +949,135 @@ function getPaymentErrorMessage(paymentError: string) {
   }
 }
 
+function getOrderTimelineSteps(order: MerchantOrder) {
+  const steps: Array<{
+    label: string;
+    description: string;
+    timestamp: string | null;
+    isCurrent?: boolean;
+    icon: React.ReactNode;
+  }> = [
+    {
+      label: "Order created",
+      description: "Your order request was saved in PrintPair.",
+      timestamp: order.createdAt,
+      icon: <CircleDashed className="h-5 w-5" />,
+    },
+  ];
+
+  if (order.status === "routed") {
+    steps.push({
+      label: "Provider matches saved",
+      description:
+        "PrintPair saved the provider comparison snapshot for this order.",
+      timestamp: order.updatedAt ?? order.createdAt,
+      isCurrent: true,
+      icon: <Route className="h-5 w-5" />,
+    });
+  }
+
+  if (
+    order.status === "provider_selected" ||
+    order.status === "paid" ||
+    productionStatusOrder.includes(order.status)
+  ) {
+    steps.push({
+      label: "Provider selected",
+      description:
+        order.status === "provider_selected"
+          ? "Payment is still needed before this order enters production."
+          : "Provider selection is locked for this order.",
+      timestamp:
+        order.status === "provider_selected"
+          ? (order.updatedAt ?? order.createdAt)
+          : null,
+      isCurrent: order.status === "provider_selected",
+      icon: <CreditCard className="h-5 w-5" />,
+    });
+  }
+
+  if (order.paymentSummary?.status === "paid" || order.status === "paid" || productionStatusOrder.includes(order.status)) {
+    steps.push({
+      label: "Payment confirmed",
+      description:
+        "Stripe confirmed payment and PrintPair marked this order paid.",
+      timestamp: order.paymentSummary?.paidAt ?? null,
+      icon: <CheckCircle2 className="h-5 w-5" />,
+    });
+  }
+
+  if (order.providerAssignmentSummary?.status === "accepted") {
+    steps.push({
+      label: "Released to provider queue",
+      description:
+        "The paid order was released into the selected provider's active queue.",
+      timestamp:
+        order.providerAssignmentSummary.respondedAt ??
+        order.providerAssignmentSummary.assignedAt,
+      isCurrent: order.status === "paid",
+      icon: <PackageCheck className="h-5 w-5" />,
+    });
+  }
+
+  const currentProductionStatus = productionStatusLabels[order.status];
+  if (currentProductionStatus) {
+    steps.push({
+      label: currentProductionStatus.label,
+      description: currentProductionStatus.description,
+      timestamp: order.updatedAt ?? order.createdAt,
+      isCurrent: true,
+      icon: currentProductionStatus.icon,
+    });
+  }
+
+  return steps;
+}
+
+const productionStatusOrder: OrderStatus[] = [
+  "in_production",
+  "ready",
+  "shipped",
+  "completed",
+];
+
+const productionStatusLabels: Partial<
+  Record<
+    OrderStatus,
+    { label: string; description: string; icon: React.ReactNode }
+  >
+> = {
+  in_production: {
+    label: "In production",
+    description: "Your provider has started production.",
+    icon: <Clock3 className="h-5 w-5" />,
+  },
+  ready: {
+    label: "Ready",
+    description: "Your order is ready for pickup, shipping, or final handoff.",
+    icon: <PackageCheck className="h-5 w-5" />,
+  },
+  shipped: {
+    label: "Shipped",
+    description: "Your provider marked this order shipped.",
+    icon: <Truck className="h-5 w-5" />,
+  },
+  completed: {
+    label: "Completed",
+    description: "This order is complete.",
+    icon: <CheckCircle2 className="h-5 w-5" />,
+  },
+};
+
+function formatTimelineDate(value: string) {
+  return new Date(value).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 function getNonPayableMessage(
   selectedRecommendation: PersistedProviderRecommendation | null,
   checkoutHref: string | null,
@@ -852,13 +1128,24 @@ function SelectProviderForm({
   );
 }
 
-function CompactNote({ label, value }: { label: string; value: string }) {
+function CompactNote({
+  label,
+  value,
+  icon,
+}: {
+  label: string;
+  value: string;
+  icon?: React.ReactNode;
+}) {
   return (
-    <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
-        {label}
-      </p>
-      <p className="mt-1 text-sm font-semibold text-zinc-950">{value}</p>
+    <div className="flex items-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-2 shadow-sm shadow-zinc-950/5">
+      {icon ? <span className="text-zinc-500">{icon}</span> : null}
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+          {label}
+        </p>
+        <p className="mt-0.5 text-sm font-semibold text-zinc-950">{value}</p>
+      </div>
     </div>
   );
 }

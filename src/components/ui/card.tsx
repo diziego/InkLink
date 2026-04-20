@@ -12,7 +12,9 @@ const toneClassNames = {
 
 export function Card({ children, className = "", tone = "light" }: CardProps) {
   return (
-    <article className={`rounded-md border p-5 ${toneClassNames[tone]} ${className}`}>
+    <article
+      className={`rounded-2xl border p-5 shadow-sm shadow-zinc-950/5 ${toneClassNames[tone]} ${className}`}
+    >
       {children}
     </article>
   );

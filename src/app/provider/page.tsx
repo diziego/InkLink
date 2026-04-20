@@ -1,4 +1,22 @@
 import type { Metadata } from "next";
+import {
+  BadgeCheck,
+  Boxes,
+  Building2,
+  CheckCircle2,
+  Clock3,
+  Factory,
+  Gauge,
+  MapPin,
+  PackageCheck,
+  PackageOpen,
+  Printer,
+  Ruler,
+  Shirt,
+  Sparkles,
+  Store,
+  Truck,
+} from "lucide-react";
 import { requireRole } from "@/lib/auth/helpers";
 import { AppHeader } from "@/components/app-header";
 import { Badge, StatusBadge } from "@/components/ui/badge";
@@ -217,16 +235,19 @@ export default async function ProviderPage({
                 : "Not configured"
             }
             description="Your provider profile is saved and used for matching. Keep it up to date to improve your routing score."
+            icon={<BadgeCheck className="h-5 w-5" />}
           />
           <StatCard
             label="Capacity"
             value={`${availableCapacity} units open`}
             description="Open capacity feeds the routing engine. Update your current capacity regularly to receive appropriately sized orders."
+            icon={<Gauge className="h-5 w-5" />}
           />
           <StatCard
             label="Turnaround and pickup"
             value={`${onboardingData.values.turnaroundSlaDays} days / ${onboardingData.values.supportsLocalPickup ? "pickup yes" : "pickup no"}`}
             description="Turnaround SLA and local pickup support directly affect how your shop ranks against merchant fulfillment goals."
+            icon={<Truck className="h-5 w-5" />}
           />
         </section>
       </div>
@@ -433,9 +454,13 @@ function ProfilePanel({
     Number.parseInt(values.currentCapacityUsed, 10);
 
   return (
-    <Card className="shadow-sm">
+    <Card className="overflow-hidden border-zinc-200 bg-gradient-to-br from-white via-white to-zinc-50">
       <div className="flex flex-col gap-4 border-b border-zinc-200 pb-5 sm:flex-row sm:items-start sm:justify-between">
-        <div>
+        <div className="flex gap-4">
+          <ProviderIconCircle active>
+            <Store className="h-5 w-5" />
+          </ProviderIconCircle>
+          <div>
           <p className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-500">
             {hasPersistedRecord ? "Saved provider profile" : "Development provider profile"}
           </p>
@@ -450,8 +475,9 @@ function ProfilePanel({
             </Badge>
             <Badge>{`${values.yearsInOperation || "0"} years active`}</Badge>
           </div>
+          </div>
         </div>
-        <div className="rounded-md bg-zinc-950 px-5 py-4 text-white">
+        <div className="rounded-2xl bg-zinc-950 px-5 py-4 text-white shadow-sm shadow-zinc-950/20">
           <p className="text-xs uppercase tracking-[0.16em] text-zinc-400">
             Capacity used
           </p>
@@ -460,14 +486,35 @@ function ProfilePanel({
       </div>
 
       <dl className="mt-5 grid gap-4 sm:grid-cols-2">
-        <FieldMetric label="Turnaround SLA" value={`${values.turnaroundSlaDays} days`} />
-        <FieldMetric label="Daily capacity" value={`${values.dailyCapacityUnits} units`} />
-        <FieldMetric label="Current capacity used" value={`${values.currentCapacityUsed} units`} />
-        <FieldMetric label="Open capacity" value={`${availableCapacity} units`} />
-        <FieldMetric label="Quality score" value={qualityScoreLabel} />
+        <FieldMetric
+          label="Turnaround SLA"
+          value={`${values.turnaroundSlaDays} days`}
+          icon={<Clock3 className="h-4 w-4" />}
+        />
+        <FieldMetric
+          label="Daily capacity"
+          value={`${values.dailyCapacityUnits} units`}
+          icon={<Boxes className="h-4 w-4" />}
+        />
+        <FieldMetric
+          label="Current capacity used"
+          value={`${values.currentCapacityUsed} units`}
+          icon={<Gauge className="h-4 w-4" />}
+        />
+        <FieldMetric
+          label="Open capacity"
+          value={`${availableCapacity} units`}
+          icon={<PackageOpen className="h-4 w-4" />}
+        />
+        <FieldMetric
+          label="Quality score"
+          value={qualityScoreLabel}
+          icon={<Sparkles className="h-4 w-4" />}
+        />
         <FieldMetric
           label="Last saved"
           value={lastSavedAt ? formatDateTime(lastSavedAt) : "Not saved yet"}
+          icon={<CheckCircle2 className="h-4 w-4" />}
         />
       </dl>
 
@@ -475,21 +522,37 @@ function ProfilePanel({
         <TagGroup
           title="Supported print methods"
           values={values.printMethods.map(getPrintMethodOptionLabel)}
+          icon={<Printer className="h-4 w-4" />}
         />
         <TagGroup
           title="Garment compatibility"
           values={values.garmentTypes.map(getGarmentTypeOptionLabel)}
+          icon={<Shirt className="h-4 w-4" />}
         />
       </div>
 
-      <div className="mt-6 rounded-md border border-zinc-200 bg-zinc-50 p-4">
-        <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-500">
-          Wholesale readiness snapshot
-        </h3>
+      <div className="mt-6 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm shadow-zinc-950/5">
+        <div className="flex items-center gap-3">
+          <ProviderIconCircle>
+            <Building2 className="h-4 w-4" />
+          </ProviderIconCircle>
+          <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-500">
+            Wholesale readiness snapshot
+          </h3>
+        </div>
         <div className="mt-4 grid gap-4 sm:grid-cols-3">
-          <FieldMetric label="Seller's permit" value={values.sellersPermitNumber || "Not provided"} />
-          <FieldMetric label="EIN / tax ID" value={values.einPlaceholder || "Not provided"} />
-          <FieldMetric label="Fulfillment cutoff" value={values.fulfillmentCutoffTime || "Not provided"} />
+          <FieldMetric
+            label="Seller's permit"
+            value={values.sellersPermitNumber || "Not provided"}
+          />
+          <FieldMetric
+            label="EIN / tax ID"
+            value={values.einPlaceholder || "Not provided"}
+          />
+          <FieldMetric
+            label="Fulfillment cutoff"
+            value={values.fulfillmentCutoffTime || "Not provided"}
+          />
         </div>
       </div>
     </Card>
@@ -728,12 +791,43 @@ function ToggleField({
   );
 }
 
-function TagGroup({ title, values }: { title: string; values: string[] }) {
+function ProviderIconCircle({
+  children,
+  active = false,
+}: {
+  children: React.ReactNode;
+  active?: boolean;
+}) {
   return (
-    <div className="rounded-md border border-zinc-200 bg-zinc-50 p-4">
-      <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-500">
-        {title}
-      </h3>
+    <div
+      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border shadow-sm shadow-zinc-950/10 ${
+        active
+          ? "border-zinc-300 bg-zinc-950 text-white"
+          : "border-zinc-200 bg-white text-zinc-600"
+      }`}
+    >
+      {children}
+    </div>
+  );
+}
+
+function TagGroup({
+  title,
+  values,
+  icon,
+}: {
+  title: string;
+  values: string[];
+  icon?: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm shadow-zinc-950/5">
+      <div className="flex items-center gap-2 text-zinc-500">
+        {icon}
+        <h3 className="text-sm font-semibold uppercase tracking-[0.16em]">
+          {title}
+        </h3>
+      </div>
       <div className="mt-3 flex flex-wrap gap-2">
         {values.map((value) => (
           <Badge key={value}>{value}</Badge>
@@ -753,12 +847,17 @@ function ProviderQueueIdentity({
   }
 
   return (
-    <div className="mb-4 rounded-md border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-700">
-      <span className="font-semibold text-zinc-950">Viewing queue for:</span>{" "}
-      {profile.businessName}
-      <span className="ml-2 text-zinc-500">
-        ({profile.verificationStatus.replaceAll("_", " ")})
-      </span>
+    <div className="mb-4 flex items-center gap-3 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-700 shadow-sm shadow-zinc-950/5">
+      <ProviderIconCircle>
+        <Factory className="h-4 w-4" />
+      </ProviderIconCircle>
+      <div>
+        <span className="font-semibold text-zinc-950">Viewing queue for:</span>{" "}
+        {profile.businessName}
+        <span className="ml-2 text-zinc-500">
+          ({profile.verificationStatus.replaceAll("_", " ")})
+        </span>
+      </div>
     </div>
   );
 }
@@ -772,23 +871,38 @@ function ActiveProductionQueue({
 }) {
   if (!hasProviderProfile) {
     return (
-      <Card className="shadow-sm">
-        <p className="text-sm leading-6 text-zinc-600">
-          No provider profile is linked to this login yet. Save provider
-          onboarding first, then paid orders selected for that profile will
-          appear here.
-        </p>
+      <Card className="border-dashed bg-gradient-to-br from-white to-zinc-50">
+        <div className="flex gap-4">
+          <ProviderIconCircle>
+            <Store className="h-5 w-5" />
+          </ProviderIconCircle>
+          <p className="text-sm leading-6 text-zinc-600">
+            No provider profile is linked to this login yet. Save provider
+            onboarding first, then paid orders selected for that profile will
+            appear here.
+          </p>
+        </div>
       </Card>
     );
   }
 
   if (assignments.length === 0) {
     return (
-      <Card className="shadow-sm">
-        <p className="text-sm leading-6 text-zinc-600">
-          No paid active jobs right now. When a merchant pays for an order after
-          selecting your shop, it will appear here automatically.
-        </p>
+      <Card className="border-dashed bg-gradient-to-br from-white to-zinc-50">
+        <div className="flex gap-4">
+          <ProviderIconCircle>
+            <PackageCheck className="h-5 w-5" />
+          </ProviderIconCircle>
+          <div>
+            <h3 className="text-xl font-semibold text-zinc-950">
+              Production queue is clear
+            </h3>
+            <p className="mt-2 text-sm leading-6 text-zinc-600">
+              No paid active jobs right now. When a merchant pays for an order
+              after selecting your shop, it will appear here automatically.
+            </p>
+          </div>
+        </div>
       </Card>
     );
   }
@@ -808,24 +922,28 @@ function LegacyPendingOrders({
   return (
     <div className="grid gap-4">
       {assignments.map((assignment) => (
-        <Card key={assignment.id} className="shadow-sm">
+        <Card key={assignment.id}>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <FieldMetric
                 label="Garment"
                 value={assignment.garmentType.replaceAll("_", " ")}
+                icon={<Shirt className="h-4 w-4" />}
               />
               <FieldMetric
                 label="Quantity"
                 value={`${assignment.quantity} units`}
+                icon={<Boxes className="h-4 w-4" />}
               />
               <FieldMetric
                 label="Fulfillment ZIP"
                 value={assignment.fulfillmentZip}
+                icon={<MapPin className="h-4 w-4" />}
               />
               <FieldMetric
                 label="Goal"
                 value={assignment.fulfillmentGoal.replaceAll("_", " ")}
+                icon={<Ruler className="h-4 w-4" />}
               />
             </div>
             <div className="flex shrink-0 gap-2">
@@ -858,15 +976,6 @@ function LegacyPendingOrders({
   );
 }
 
-const ORDER_STATUS_LABELS: Record<string, string> = {
-  paid: "Paid",
-  accepted: "Active",
-  in_production: "In production",
-  ready: "Ready for pickup / ship",
-  shipped: "Shipped",
-  completed: "Completed",
-};
-
 const NEXT_STATUS_LABELS: Record<string, string> = {
   paid: "Start production",
   accepted: "Start production",
@@ -879,28 +988,31 @@ function AcceptedOrders({ assignments }: { assignments: ProviderAssignment[] }) 
   return (
     <div className="grid gap-4">
       {assignments.map((assignment) => {
-        const statusLabel = ORDER_STATUS_LABELS[assignment.orderStatus] ?? assignment.orderStatus.replaceAll("_", " ");
         const nextLabel = NEXT_STATUS_LABELS[assignment.orderStatus];
 
         return (
-          <Card key={assignment.id} className="shadow-sm">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <Card key={assignment.id} className="border-zinc-200 bg-gradient-to-br from-white to-zinc-50/80">
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <FieldMetric
                   label="Garment"
                   value={assignment.garmentType.replaceAll("_", " ")}
+                  icon={<Shirt className="h-4 w-4" />}
                 />
                 <FieldMetric
                   label="Quantity"
                   value={`${assignment.quantity} units`}
+                  icon={<Boxes className="h-4 w-4" />}
                 />
                 <FieldMetric
                   label="Fulfillment ZIP"
                   value={assignment.fulfillmentZip}
+                  icon={<MapPin className="h-4 w-4" />}
                 />
                 <FieldMetric
                   label="Goal"
                   value={assignment.fulfillmentGoal.replaceAll("_", " ")}
+                  icon={<Ruler className="h-4 w-4" />}
                 />
               </div>
               <div className="flex shrink-0 flex-col items-end gap-2">
@@ -910,8 +1022,9 @@ function AcceptedOrders({ assignments }: { assignments: ProviderAssignment[] }) 
                     <input type="hidden" name="merchantOrderId" value={assignment.merchantOrderId} />
                     <button
                       type="submit"
-                      className="inline-flex h-9 items-center justify-center rounded-md bg-indigo-950 px-4 text-sm font-semibold text-white transition hover:bg-indigo-900"
+                      className="inline-flex h-9 items-center justify-center gap-2 rounded-full bg-indigo-950 px-4 text-sm font-semibold text-white shadow-sm shadow-indigo-950/20 transition hover:bg-indigo-900"
                     >
+                      <PackageCheck className="h-4 w-4" />
                       {nextLabel}
                     </button>
                   </form>
