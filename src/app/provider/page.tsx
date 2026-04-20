@@ -115,44 +115,39 @@ export default async function ProviderPage({
       <div className="mx-auto max-w-6xl">
         <AppHeader />
 
-        <section className="grid gap-8 py-14 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
-          <div>
-            <SectionHeading
-              eyebrow="Provider onboarding"
-              title="List your shop's capabilities to start receiving matched orders from local brands."
-              description="Complete your profile so PrintPair can match your print methods, garment types, capacity, and location against incoming merchant orders."
-            />
-            <div className="mt-8">
-              <PersistenceNotice
-                onboardingData={onboardingData}
-                savedFlag={savedFlag}
-                sourceFlag={sourceFlag}
-              />
-            </div>
-          </div>
-
-          <ProfilePanel
+        <section className="py-10">
+          <ProviderWorkspaceHero
+            profile={providerProfileSummary}
             values={onboardingData.values}
-            qualityScoreLabel={onboardingData.qualityScoreLabel}
             capacityUsePercent={capacityUsePercent}
-            hasPersistedRecord={onboardingData.hasPersistedRecord}
-            lastSavedAt={onboardingData.lastSavedAt}
+            availableCapacity={availableCapacity}
+            activeJobCount={acceptedAssignments.length}
+            pendingJobCount={pendingAssignments.length}
           />
+          <div className="mt-5">
+            <PersistenceNotice
+              onboardingData={onboardingData}
+              savedFlag={savedFlag}
+              sourceFlag={sourceFlag}
+            />
+          </div>
         </section>
 
         <section className="pb-12">
-          <div className="mb-6">
-            <p className="text-sm font-medium uppercase tracking-[0.2em] text-zinc-500">
-              Production queue
-            </p>
-            <h2 className="mt-2 text-3xl font-semibold">Paid active jobs</h2>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">
-              Paid merchant orders appear here automatically after Stripe
-              confirms payment and PrintPair releases the selected provider into
-              the queue.
-            </p>
+          <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-600">
+                Production workspace
+              </p>
+              <h2 className="mt-2 text-3xl font-semibold">Paid active jobs</h2>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">
+                Paid merchant orders appear here after Stripe confirms payment.
+                Move each job through production and keep merchant-facing
+                fulfillment details current.
+              </p>
+            </div>
+            <QueueSummaryPills assignments={acceptedAssignments} />
           </div>
-          <ProviderQueueIdentity profile={providerProfileSummary} />
           <ActiveProductionQueue
             assignments={acceptedAssignments}
             hasProviderProfile={!!providerProfileId}
@@ -174,6 +169,24 @@ export default async function ProviderPage({
             <LegacyPendingOrders assignments={pendingAssignments} />
           </section>
         )}
+
+        <section className="grid gap-8 pb-12 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+          <div>
+            <SectionHeading
+              eyebrow="Provider profile"
+              title="Keep your shop profile ready for future matched orders."
+              description="Your capabilities, pricing, inventory, and capacity influence which paid orders are routed to your provider profile."
+            />
+          </div>
+
+          <ProfilePanel
+            values={onboardingData.values}
+            qualityScoreLabel={onboardingData.qualityScoreLabel}
+            capacityUsePercent={capacityUsePercent}
+            hasPersistedRecord={onboardingData.hasPersistedRecord}
+            lastSavedAt={onboardingData.lastSavedAt}
+          />
+        </section>
 
         <section className="pb-8">
           <div className="mb-6">
@@ -257,6 +270,87 @@ export default async function ProviderPage({
         </section>
       </div>
     </main>
+  );
+}
+
+function ProviderWorkspaceHero({
+  profile,
+  values,
+  capacityUsePercent,
+  availableCapacity,
+  activeJobCount,
+  pendingJobCount,
+}: {
+  profile: ProviderProfileSummary | null;
+  values: ProviderOnboardingFormValues;
+  capacityUsePercent: number;
+  availableCapacity: number;
+  activeJobCount: number;
+  pendingJobCount: number;
+}) {
+  return (
+    <Card className="overflow-hidden rounded-md border-zinc-200 bg-white">
+      <div className="grid gap-6 lg:grid-cols-[1fr_22rem] lg:items-center">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-600">
+            Provider workspace
+          </p>
+          <h1 className="mt-2 text-4xl font-semibold tracking-tight text-zinc-950">
+            Production queue for paid PrintPair jobs.
+          </h1>
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-zinc-600">
+            {profile
+              ? `${profile.businessName} is receiving paid orders selected by merchants. Keep statuses and fulfillment details current so merchants can follow production.`
+              : "Save provider onboarding first so paid orders selected for your shop can appear in this workspace."}
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Badge tone={profile ? "brand" : "warning"}>
+              {profile ? "Provider profile linked" : "Profile setup needed"}
+            </Badge>
+            <Badge>{values.supportsLocalPickup ? "Local pickup supported" : "Shipping focused"}</Badge>
+            <Badge>{`${values.turnaroundSlaDays} day SLA`}</Badge>
+          </div>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+          <WorkspaceMetric
+            label="Active jobs"
+            value={`${activeJobCount}`}
+            description="Paid jobs in your queue"
+          />
+          <WorkspaceMetric
+            label="Open capacity"
+            value={`${availableCapacity}`}
+            description={`${capacityUsePercent}% currently used`}
+          />
+          <WorkspaceMetric
+            label="Legacy pending"
+            value={`${pendingJobCount}`}
+            description="Older pre-payment matches"
+          />
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function WorkspaceMetric({
+  label,
+  value,
+  description,
+}: {
+  label: string;
+  value: string;
+  description: string;
+}) {
+  return (
+    <div className="rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3">
+      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">
+        {label}
+      </p>
+      <p className="mt-1 text-2xl font-semibold text-zinc-950">{value}</p>
+      <p className="mt-1 text-xs leading-5 text-zinc-500">{description}</p>
+    </div>
   );
 }
 
@@ -867,6 +961,45 @@ function ProviderQueueIdentity({
   );
 }
 
+function QueueSummaryPills({ assignments }: { assignments: ProviderAssignment[] }) {
+  const statusCounts = assignments.reduce(
+    (counts, assignment) => {
+      counts.total += 1;
+      if (assignment.orderStatus === "paid" || assignment.orderStatus === "accepted") {
+        counts.readyToStart += 1;
+      }
+      if (assignment.orderStatus === "in_production") {
+        counts.inProduction += 1;
+      }
+      if (assignment.orderStatus === "ready" || assignment.orderStatus === "shipped") {
+        counts.handoff += 1;
+      }
+      return counts;
+    },
+    { total: 0, readyToStart: 0, inProduction: 0, handoff: 0 },
+  );
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      <QueuePill label="All active" value={statusCounts.total} />
+      <QueuePill label="Ready to start" value={statusCounts.readyToStart} />
+      <QueuePill label="In production" value={statusCounts.inProduction} />
+      <QueuePill label="Handoff" value={statusCounts.handoff} />
+    </div>
+  );
+}
+
+function QueuePill({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="inline-flex h-10 items-center gap-2 rounded-md border border-zinc-200 bg-white px-3 text-sm font-semibold text-zinc-700 shadow-sm">
+      <span>{label}</span>
+      <span className="rounded-full bg-zinc-950 px-2 py-0.5 text-xs text-white">
+        {value}
+      </span>
+    </div>
+  );
+}
+
 function ActiveProductionQueue({
   assignments,
   hasProviderProfile,
@@ -989,48 +1122,170 @@ const NEXT_STATUS_LABELS: Record<string, string> = {
   shipped: "Mark as completed",
 };
 
+function getProviderStatusContext(status: ProviderAssignment["orderStatus"]) {
+  switch (status) {
+    case "paid":
+    case "accepted":
+      return {
+        label: "Ready to start",
+        description:
+          "This paid order is released to your active queue. Start production when your team is ready.",
+      };
+    case "in_production":
+      return {
+        label: "In production",
+        description:
+          "Production is underway. Keep notes and estimated ready dates current for the merchant.",
+      };
+    case "ready":
+      return {
+        label: "Ready for handoff",
+        description:
+          "This job is ready for the next fulfillment step. Add pickup or shipping details before moving it forward.",
+      };
+    case "shipped":
+      return {
+        label: "Handoff complete",
+        description:
+          "The order has moved through handoff. Mark it completed when no further provider action is needed.",
+      };
+    case "completed":
+      return {
+        label: "Completed",
+        description: "This job is complete.",
+      };
+    default:
+      return {
+        label: status.replaceAll("_", " "),
+        description:
+          "Review this paid order and update production status when work begins.",
+      };
+  }
+}
+
+function getProviderProgressSteps(status: ProviderAssignment["orderStatus"]) {
+  const progress = getProviderProgressIndex(status);
+  const steps = [
+    { label: "Paid", icon: <CheckCircle2 className="h-3.5 w-3.5" /> },
+    { label: "Production", icon: <Printer className="h-3.5 w-3.5" /> },
+    { label: "Ready", icon: <PackageCheck className="h-3.5 w-3.5" /> },
+    { label: "Handoff", icon: <Truck className="h-3.5 w-3.5" /> },
+    { label: "Complete", icon: <CheckCircle2 className="h-3.5 w-3.5" /> },
+  ];
+
+  return steps.map((step, index) => ({
+    ...step,
+    state:
+      index < progress
+        ? "complete"
+        : index === progress
+          ? "current"
+          : "upcoming",
+  }));
+}
+
+function getProviderProgressIndex(status: ProviderAssignment["orderStatus"]) {
+  switch (status) {
+    case "paid":
+    case "accepted":
+      return 0;
+    case "in_production":
+      return 1;
+    case "ready":
+      return 2;
+    case "shipped":
+      return 3;
+    case "completed":
+      return 4;
+    default:
+      return 0;
+  }
+}
+
 function AcceptedOrders({ assignments }: { assignments: ProviderAssignment[] }) {
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-5">
       {assignments.map((assignment) => {
         const nextLabel = NEXT_STATUS_LABELS[assignment.orderStatus];
+        const statusContext = getProviderStatusContext(assignment.orderStatus);
 
         return (
-          <Card key={assignment.id} className="border-zinc-200 bg-gradient-to-br from-white to-zinc-50/80">
-            <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <FieldMetric
-                  label="Garment"
-                  value={assignment.garmentType.replaceAll("_", " ")}
-                  icon={<Shirt className="h-4 w-4" />}
-                />
-                <FieldMetric
-                  label="Quantity"
-                  value={`${assignment.quantity} units`}
-                  icon={<Boxes className="h-4 w-4" />}
-                />
-                <FieldMetric
-                  label="Fulfillment ZIP"
-                  value={assignment.fulfillmentZip}
-                  icon={<MapPin className="h-4 w-4" />}
-                />
-                <FieldMetric
-                  label="Goal"
-                  value={assignment.fulfillmentGoal.replaceAll("_", " ")}
-                  icon={<Ruler className="h-4 w-4" />}
-                />
+          <Card key={assignment.id} className="rounded-md border-zinc-200 bg-white">
+            <div className="grid gap-5 lg:grid-cols-[1fr_13rem] lg:items-start">
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge tone="brand">Paid job</Badge>
+                  <Badge>{`Order ${formatShortId(assignment.merchantOrderId)}`}</Badge>
+                  <StatusBadge status={assignment.orderStatus} />
+                </div>
+                <h3 className="mt-3 text-2xl font-semibold text-zinc-950">
+                  {assignment.quantity} {assignment.garmentType.replaceAll("_", " ")}
+                </h3>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-600">
+                  {statusContext.description}
+                </p>
               </div>
-              <div className="flex shrink-0 flex-col items-end gap-2">
-                <StatusBadge status={assignment.orderStatus} />
+
+              <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">
+                  Current state
+                </p>
+                <p className="mt-1 text-lg font-semibold text-zinc-950">
+                  {statusContext.label}
+                </p>
+                <p className="mt-1 text-xs leading-5 text-zinc-500">
+                  Released {assignment.respondedAt ? formatDateTime(assignment.respondedAt) : "recently"}
+                </p>
               </div>
             </div>
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <FieldMetric
+                label="Item"
+                value={assignment.garmentType.replaceAll("_", " ")}
+                icon={<Shirt className="h-4 w-4" />}
+              />
+              <FieldMetric
+                label="Quantity"
+                value={`${assignment.quantity} units`}
+                icon={<Boxes className="h-4 w-4" />}
+              />
+              <FieldMetric
+                label="Fulfillment ZIP"
+                value={assignment.fulfillmentZip}
+                icon={<MapPin className="h-4 w-4" />}
+              />
+              <FieldMetric
+                label="Merchant goal"
+                value={assignment.fulfillmentGoal.replaceAll("_", " ")}
+                icon={<Ruler className="h-4 w-4" />}
+              />
+            </div>
+
+            <div className="mt-5 rounded-md border border-zinc-200 bg-zinc-50 p-3">
+              <div className="flex flex-wrap items-center gap-2">
+                {getProviderProgressSteps(assignment.orderStatus).map((step) => (
+                  <div
+                    key={step.label}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${
+                      step.state === "complete"
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                        : step.state === "current"
+                          ? "border-indigo-200 bg-indigo-50 text-indigo-900"
+                          : "border-zinc-200 bg-white text-zinc-500"
+                    }`}
+                  >
+                    {step.icon}
+                    {step.label}
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <FulfillmentDetailsForm
               assignment={assignment}
               nextStatusLabel={nextLabel}
             />
-            <p className="mt-3 text-xs text-zinc-400">
-              Released to queue {assignment.respondedAt ? formatDateTime(assignment.respondedAt) : "—"}
-            </p>
           </Card>
         );
       })}
@@ -1048,7 +1303,7 @@ function FulfillmentDetailsForm({
   const details = assignment.fulfillmentDetails;
 
   return (
-    <form action={updateFulfillmentDetailsAction} className="mt-5 rounded-2xl border border-zinc-200 bg-white p-4">
+    <form action={updateFulfillmentDetailsAction} className="mt-5 rounded-md border border-zinc-200 bg-white p-4 shadow-sm shadow-zinc-950/5">
       <input
         type="hidden"
         name="merchantOrderId"
@@ -1061,10 +1316,10 @@ function FulfillmentDetailsForm({
           </ProviderIconCircle>
           <div>
             <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-500">
-              Fulfillment details
+              Production details
             </h3>
             <p className="mt-1 text-sm text-zinc-600">
-              Merchant-facing production notes, pickup, and tracking info.
+              Merchant-facing notes, handoff instructions, and tracking fields.
             </p>
           </div>
         </div>
@@ -1137,7 +1392,7 @@ function FulfillmentDetailsForm({
       <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
         <button
           type="submit"
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-50"
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-50"
         >
           <MessageSquare className="h-4 w-4" />
           Save details
@@ -1146,7 +1401,7 @@ function FulfillmentDetailsForm({
           <button
             type="submit"
             formAction={advanceOrderStatusAction}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-indigo-950 px-4 text-sm font-semibold text-white shadow-sm shadow-indigo-950/20 transition hover:bg-indigo-900"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-indigo-950 px-4 text-sm font-semibold text-white shadow-sm shadow-indigo-950/20 transition hover:bg-indigo-900"
           >
             <PackageCheck className="h-4 w-4" />
             {nextStatusLabel}
@@ -1177,6 +1432,10 @@ function getStringParam(value: string | string[] | undefined) {
   }
 
   return value ?? "";
+}
+
+function formatShortId(value: string) {
+  return value.slice(0, 8).toUpperCase();
 }
 
 function formatDateTime(value: string) {
