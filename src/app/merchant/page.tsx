@@ -103,6 +103,12 @@ export default async function MerchantPage({ searchParams }: MerchantPageProps) 
     typeof resolvedSearchParams.orderId === "string"
       ? resolvedSearchParams.orderId
       : "";
+  const view =
+    typeof resolvedSearchParams.view === "string"
+      ? resolvedSearchParams.view
+      : "";
+  const isNewOrderView = view === "new";
+  const isHistoryView = view === "history";
 
   // Success flag set by selectProviderAction redirect
   const providerSelectedFlag = resolvedSearchParams.providerSelected === "1";
@@ -189,6 +195,7 @@ export default async function MerchantPage({ searchParams }: MerchantPageProps) 
   if (supabaseReady) {
     orderHistory = await loadMerchantOrderHistory(user.id);
   }
+  const inProgressOrders = getOrdersInProgress(orderHistory);
 
   return (
     <main className="min-h-screen bg-zinc-50 px-6 py-8 text-zinc-950 sm:px-10 lg:px-16">
@@ -224,25 +231,31 @@ export default async function MerchantPage({ searchParams }: MerchantPageProps) 
           />
         </div>
 
+        {!savedOrder && !isNewOrderView && !isHistoryView ? (
+          <MerchantDashboard
+            orders={orderHistory}
+            inProgressOrders={inProgressOrders}
+            supabaseReady={supabaseReady}
+          />
+        ) : null}
+
+        {isHistoryView && !savedOrder ? (
+          <MerchantHistoryView orders={orderHistory} />
+        ) : null}
+
         {/* Catalog / order form — client component manages view state */}
-        <MerchantCatalogClient
-          blankBrandOptions={blankBrandOptions}
-          blankStyleOptions={blankStyleOptions}
-          submittedOrderId={orderId}
-          submittedOrder={savedOrder}
-        />
+        {(isNewOrderView || savedOrder) ? (
+          <MerchantCatalogClient
+            blankBrandOptions={blankBrandOptions}
+            blankStyleOptions={blankStyleOptions}
+            submittedOrderId={orderId}
+            submittedOrder={savedOrder}
+          />
+        ) : null}
 
         {/* Recommendations — visible only after an order has been saved */}
         {savedOrder ? (
           <section className="pt-10 pb-14">
-            <div className="mb-4 flex justify-end">
-              <Link
-                href="/merchant"
-                className="inline-flex h-10 items-center justify-center rounded-md border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-700 shadow-sm transition hover:bg-zinc-50 hover:text-zinc-950"
-              >
-                View all orders
-              </Link>
-            </div>
             {isPaidOrder ? (
               <MerchantProductionWorkspace
                 order={savedOrder}
@@ -320,22 +333,133 @@ export default async function MerchantPage({ searchParams }: MerchantPageProps) 
           </section>
         ) : null}
 
-        {/* Order history */}
-        {!orderId && orderHistory.length > 0 ? (
-          <section className="border-t border-zinc-200 py-14">
-            <div className="mb-6">
-              <p className="text-sm font-medium uppercase tracking-[0.2em] text-zinc-500">
-                Your orders
-              </p>
-              <h2 className="mt-2 text-3xl font-semibold text-zinc-950">
-                Order history
-              </h2>
-            </div>
-            <OrderHistory orders={orderHistory} currentOrderId={orderId} />
-          </section>
-        ) : null}
       </div>
     </main>
+  );
+}
+
+function MerchantDashboard({
+  orders,
+  inProgressOrders,
+  supabaseReady,
+}: {
+  orders: MerchantOrderSummary[];
+  inProgressOrders: MerchantOrderSummary[];
+  supabaseReady: boolean;
+}) {
+  return (
+    <section className="py-12">
+      <div className="rounded-md border border-zinc-200 bg-white p-5 shadow-sm">
+        <div className="grid gap-6 lg:grid-cols-[1fr_18rem] lg:items-center">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-600">
+              Merchant dashboard
+            </p>
+            <h1 className="mt-2 text-4xl font-semibold tracking-tight text-zinc-950">
+              Manage print orders from one workspace.
+            </h1>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-600">
+              Start a new order, resume provider selection, or check production
+              progress for paid orders already sent to providers.
+            </p>
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <Link
+                href="/merchant?view=new"
+                className="inline-flex h-11 items-center justify-center rounded-md bg-indigo-950 px-5 text-sm font-semibold text-white shadow-sm shadow-indigo-950/20 transition hover:bg-indigo-900"
+              >
+                Start new order
+              </Link>
+              <Link
+                href="/merchant?view=history"
+                className="inline-flex h-11 items-center justify-center rounded-md border border-zinc-300 bg-white px-5 text-sm font-semibold text-zinc-700 shadow-sm transition hover:bg-zinc-50 hover:text-zinc-950"
+              >
+                Order history
+              </Link>
+            </div>
+          </div>
+          <div className="grid gap-3">
+            <DashboardMetric label="Total orders" value={`${orders.length}`} />
+            <DashboardMetric
+              label="In progress"
+              value={`${inProgressOrders.length}`}
+            />
+            <DashboardMetric
+              label="Workspace"
+              value={supabaseReady ? "Live" : "Setup needed"}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-8">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-zinc-500">
+              Orders in progress
+            </p>
+            <h2 className="mt-2 text-3xl font-semibold text-zinc-950">
+              Active production
+            </h2>
+          </div>
+          <Link
+            href="/merchant?view=history"
+            className="text-sm font-semibold text-indigo-700 hover:text-indigo-900"
+          >
+            View full history
+          </Link>
+        </div>
+        {inProgressOrders.length > 0 ? (
+          <OrderHistory orders={inProgressOrders} currentOrderId="" />
+        ) : (
+          <Card className="rounded-md border-dashed border-zinc-300 bg-white">
+            <p className="text-sm leading-6 text-zinc-600">
+              No paid orders are in production yet. Start a new order or choose
+              a provider from an existing routed order to move into checkout.
+            </p>
+          </Card>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function MerchantHistoryView({ orders }: { orders: MerchantOrderSummary[] }) {
+  return (
+    <section className="py-12">
+      <div className="mb-6">
+        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-zinc-500">
+          Your orders
+        </p>
+        <h1 className="mt-2 text-3xl font-semibold text-zinc-950">
+          Order history
+        </h1>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-600">
+          Review previous orders, resume provider selection, or open paid
+          production workspaces.
+        </p>
+      </div>
+      {orders.length > 0 ? (
+        <OrderHistory orders={orders} currentOrderId="" />
+      ) : (
+        <Card className="rounded-md border-dashed border-zinc-300 bg-white">
+          <p className="text-sm leading-6 text-zinc-600">
+            No orders yet. Start a new order to see saved provider matches and
+            production status here.
+          </p>
+        </Card>
+      )}
+    </section>
+  );
+}
+
+function DashboardMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3">
+      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">
+        {label}
+      </p>
+      <p className="mt-1 text-2xl font-semibold text-zinc-950">{value}</p>
+    </div>
   );
 }
 
@@ -1658,6 +1782,17 @@ function isPickupOrLocalFirstOrder(order: MerchantOrder) {
 
 function getOrderQuantity(order: MerchantOrder) {
   return order.items.reduce((total, item) => total + item.quantity, 0);
+}
+
+function getOrdersInProgress(orders: MerchantOrderSummary[]) {
+  const inProgressStatuses = new Set([
+    "paid",
+    "in_production",
+    "ready",
+    "shipped",
+  ]);
+
+  return orders.filter((order) => inProgressStatuses.has(order.status));
 }
 
 function formatProductionPrice(order: MerchantOrder) {
