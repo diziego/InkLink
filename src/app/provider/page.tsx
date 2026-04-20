@@ -1282,14 +1282,87 @@ function AcceptedOrders({ assignments }: { assignments: ProviderAssignment[] }) 
               </div>
             </div>
 
-            <FulfillmentDetailsForm
+            <JobActionBar
               assignment={assignment}
               nextStatusLabel={nextLabel}
             />
+
+            <details className="mt-4 rounded-md border border-zinc-200 bg-zinc-50">
+              <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-zinc-700 marker:hidden">
+                Open production details
+              </summary>
+              <div className="border-t border-zinc-200 p-4">
+                <FulfillmentDetailsForm
+                  assignment={assignment}
+                  nextStatusLabel={nextLabel}
+                />
+              </div>
+            </details>
           </Card>
         );
       })}
     </div>
+  );
+}
+
+function JobActionBar({
+  assignment,
+  nextStatusLabel,
+}: {
+  assignment: ProviderAssignment;
+  nextStatusLabel?: string;
+}) {
+  return (
+    <div className="mt-5 flex flex-col gap-3 rounded-md border border-zinc-200 bg-zinc-50 p-3 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <p className="text-sm font-semibold text-zinc-950">Next provider action</p>
+        <p className="mt-1 text-sm leading-6 text-zinc-600">
+          Advance the job from the queue card, or open production details to add
+          merchant-facing notes before saving.
+        </p>
+      </div>
+      <div className="flex shrink-0 flex-wrap gap-2">
+        {nextStatusLabel ? (
+          <form action={advanceOrderStatusAction}>
+            <input
+              type="hidden"
+              name="merchantOrderId"
+              value={assignment.merchantOrderId}
+            />
+            <HiddenFulfillmentDetailInputs assignment={assignment} />
+            <button
+              type="submit"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-indigo-950 px-4 text-sm font-semibold text-white shadow-sm shadow-indigo-950/20 transition hover:bg-indigo-900"
+            >
+              <PackageCheck className="h-4 w-4" />
+              {nextStatusLabel}
+            </button>
+          </form>
+        ) : (
+          <Badge tone="brand">No further status action</Badge>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function HiddenFulfillmentDetailInputs({
+  assignment,
+}: {
+  assignment: ProviderAssignment;
+}) {
+  const details = assignment.fulfillmentDetails;
+
+  return (
+    <>
+      <input type="hidden" name="providerNotes" value={details.providerNotes ?? ""} />
+      <input type="hidden" name="estimatedReadyDate" value={details.estimatedReadyDate ?? ""} />
+      <input type="hidden" name="pickupInstructions" value={details.pickupInstructions ?? ""} />
+      <input type="hidden" name="readyForPickupNote" value={details.readyForPickupNote ?? ""} />
+      <input type="hidden" name="carrierName" value={details.carrierName ?? ""} />
+      <input type="hidden" name="trackingNumber" value={details.trackingNumber ?? ""} />
+      <input type="hidden" name="shippingNote" value={details.shippingNote ?? ""} />
+    </>
   );
 }
 
@@ -1303,7 +1376,7 @@ function FulfillmentDetailsForm({
   const details = assignment.fulfillmentDetails;
 
   return (
-    <form action={updateFulfillmentDetailsAction} className="mt-5 rounded-md border border-zinc-200 bg-white p-4 shadow-sm shadow-zinc-950/5">
+    <form action={updateFulfillmentDetailsAction} className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm shadow-zinc-950/5">
       <input
         type="hidden"
         name="merchantOrderId"
