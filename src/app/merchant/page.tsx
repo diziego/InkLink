@@ -178,6 +178,11 @@ export default async function MerchantPage({ searchParams }: MerchantPageProps) 
     isPaidOrder && selectedRecommendationForOrder
       ? [selectedRecommendationForOrder]
       : recommendations;
+  const showPickupSavingsBanner =
+    savedOrder !== null &&
+    !isPaidOrder &&
+    isPickupOrLocalFirstOrder(savedOrder) &&
+    topRecommendation?.operationalNotes.localPickupSupported;
 
   // Load order history
   let orderHistory: MerchantOrderSummary[] = [];
@@ -230,70 +235,118 @@ export default async function MerchantPage({ searchParams }: MerchantPageProps) 
         {/* Recommendations — visible only after an order has been saved */}
         {savedOrder ? (
           <section className="pt-10 pb-14">
-            <div className="mb-8">
-              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-600">
-                {isPaidOrder
-                  ? "Payment confirmed"
-                  : savedOrder.status === "provider_selected"
-                  ? "Provider selected"
-                  : "Matching providers"}
-              </p>
-              <h2 className="mt-2 text-3xl font-semibold text-zinc-950">
-                {isPaidOrder
-                  ? "Your selected provider is ready to produce"
-                  : savedOrder.status === "provider_selected"
-                  ? "Your selected provider"
-                  : "Choose your print partner"}
-              </h2>
-              {!isPaidOrder && savedOrder.status !== "provider_selected" && (
-                <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-600">
-                  We matched your order with the best-fit providers based on
-                  print method, turnaround, location, and pricing. Compare your
-                  options below and select the provider you want to work with.
-                </p>
-              )}
-            </div>
+            {isPaidOrder ? (
+              <>
+                <div className="mb-8">
+                  <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-600">
+                    Payment confirmed
+                  </p>
+                  <h2 className="mt-2 text-3xl font-semibold text-zinc-950">
+                    Your selected provider is ready to produce
+                  </h2>
+                </div>
 
-            <PaymentStatePanel
-              order={savedOrder}
-              paymentState={paymentState}
-              paymentError={paymentError}
-              checkoutHref={getCheckoutHref(savedOrder, selectedRecommendationForOrder)}
-              selectedRecommendation={selectedRecommendationForOrder}
-            />
+                <PaymentStatePanel
+                  order={savedOrder}
+                  paymentState={paymentState}
+                  paymentError={paymentError}
+                  checkoutHref={getCheckoutHref(savedOrder, selectedRecommendationForOrder)}
+                  selectedRecommendation={selectedRecommendationForOrder}
+                />
 
-            <OrderTimeline order={savedOrder} />
+                <OrderTimeline order={savedOrder} />
 
-            <FulfillmentDetailsPanel order={savedOrder} />
+                <FulfillmentDetailsPanel order={savedOrder} />
 
-            {!isPaidOrder && topRecommendation ? (
-              <FirstRankSummary recommendation={topRecommendation} />
-            ) : null}
+                {visibleRecommendations.length > 0 ? (
+                  <div className="grid gap-5">
+                    {visibleRecommendations.map((recommendation, index) => (
+                      <RecommendationCard
+                        key={recommendation.providerId}
+                        rank={index + 1}
+                        recommendation={recommendation}
+                        orderId={orderId}
+                        orderStatus={savedOrder!.status}
+                        isPaidOrder={isPaidOrder}
+                        selectedProviderProfileId={
+                          savedOrder!.selectedProviderProfileId ?? null
+                        }
+                        selectedRecommendationSnapshotId={
+                          savedOrder!.selectedRecommendationSnapshotId ?? null
+                        }
+                      />
+                    ))}
+                  </div>
+                ) : null}
+              </>
+            ) : (
+              <>
+                <SavedOrderBar order={savedOrder} />
 
-            {visibleRecommendations.length > 0 ? (
-              <div className="grid gap-5">
-                {visibleRecommendations.map((recommendation, index) => (
-                  <RecommendationCard
-                    key={recommendation.providerId}
-                    rank={index + 1}
-                    recommendation={recommendation}
-                    orderId={orderId}
-                    orderStatus={savedOrder!.status}
-                    isPaidOrder={isPaidOrder}
-                    selectedProviderProfileId={
-                      savedOrder!.selectedProviderProfileId ?? null
-                    }
-                    selectedRecommendationSnapshotId={
-                      savedOrder!.selectedRecommendationSnapshotId ?? null
+                <div className="mb-6">
+                  <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-600">
+                    {savedOrder.status === "provider_selected"
+                      ? "Provider selected"
+                      : "Matching providers"}
+                  </p>
+                  <h2 className="mt-2 text-3xl font-semibold text-zinc-950">
+                    {savedOrder.status === "provider_selected"
+                      ? "Your selected provider"
+                      : "Choose your print partner"}
+                  </h2>
+                  <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-600">
+                    Compare saved provider matches by price, turnaround, pickup
+                    support, and overall fit. Local pickup options are surfaced
+                    clearly when they can help you avoid shipping.
+                  </p>
+                </div>
+
+                <PaymentStatePanel
+                  order={savedOrder}
+                  paymentState={paymentState}
+                  paymentError={paymentError}
+                  checkoutHref={getCheckoutHref(savedOrder, selectedRecommendationForOrder)}
+                  selectedRecommendation={selectedRecommendationForOrder}
+                />
+
+                {showPickupSavingsBanner && topRecommendation ? (
+                  <PickupSavingsBanner
+                    shippingCostUsd={
+                      topRecommendation.operationalNotes.estimatedShippingCostUsd
                     }
                   />
-                ))}
-              </div>
-            ) : (
-              <EmptyRecommendationState
-                persistenceMode={providerData.persistenceMode}
-                hasVerifiedProviders={hasVerifiedProviders}
-              />
+                ) : null}
+
+                {topRecommendation ? (
+                  <FirstRankSummary recommendation={topRecommendation} />
+                ) : null}
+
+                {visibleRecommendations.length > 0 ? (
+                  <div className="grid gap-5">
+                    {visibleRecommendations.map((recommendation, index) => (
+                      <RecommendationCard
+                        key={recommendation.providerId}
+                        rank={index + 1}
+                        recommendation={recommendation}
+                        orderId={orderId}
+                        orderStatus={savedOrder!.status}
+                        isPaidOrder={isPaidOrder}
+                        selectedProviderProfileId={
+                          savedOrder!.selectedProviderProfileId ?? null
+                        }
+                        selectedRecommendationSnapshotId={
+                          savedOrder!.selectedRecommendationSnapshotId ?? null
+                        }
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyRecommendationState
+                    persistenceMode={providerData.persistenceMode}
+                    hasVerifiedProviders={hasVerifiedProviders}
+                  />
+                )}
+              </>
             )}
           </section>
         ) : null}
@@ -314,6 +367,71 @@ export default async function MerchantPage({ searchParams }: MerchantPageProps) 
         ) : null}
       </div>
     </main>
+  );
+}
+
+function SavedOrderBar({ order }: { order: MerchantOrder }) {
+  const firstItem = order.items[0];
+  const itemLabel = firstItem
+    ? `${garmentTypeLabels[firstItem.garmentType]} · ${getOrderQuantity(order)} units`
+    : `${getOrderQuantity(order)} units`;
+
+  return (
+    <div className="mb-5 rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge>Saved order</Badge>
+          <span className="text-sm font-semibold text-zinc-950">
+            {itemLabel}
+          </span>
+          <span className="text-sm text-zinc-500">
+            ZIP {order.fulfillmentZip}
+          </span>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Badge tone={order.localPickupPreferred ? "warning" : "brand"}>
+            {order.localPickupPreferred ? "Pickup preferred" : "Shipping"}
+          </Badge>
+          <StatusBadge status={order.status} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PickupSavingsBanner({
+  shippingCostUsd,
+}: {
+  shippingCostUsd: number;
+}) {
+  return (
+    <div className="mb-5 rounded-md border border-amber-200 bg-amber-50 p-4 shadow-sm">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-amber-200 text-amber-900">
+            <MapPin className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-amber-950">
+              Local pickup providers are shown first
+            </p>
+            <p className="mt-1 text-sm leading-6 text-amber-900">
+              Pick up directly from a nearby vetted shop — no shipping required.
+            </p>
+          </div>
+        </div>
+        {shippingCostUsd > 0 ? (
+          <div className="rounded-md border border-amber-200 bg-white px-4 py-3 text-right">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-700">
+              Potential savings
+            </p>
+            <p className="mt-1 text-xl font-semibold text-amber-950">
+              ~${shippingCostUsd.toFixed(2)}
+            </p>
+          </div>
+        ) : null}
+      </div>
+    </div>
   );
 }
 
@@ -635,8 +753,7 @@ function MerchantNotice({
   if (isSavedOrder) {
     return (
       <MockNotice>
-        Showing your saved order below. Provider comparison is loaded from the
-        frozen recommendation snapshot saved when this order was routed.
+        Showing your saved order with provider matches saved at routing time.
       </MockNotice>
     );
   }
@@ -832,17 +949,21 @@ function RecommendationCard({
       ? `~$${(recommendation.priceEstimate.estimatedTotalCents / 100).toFixed(2)}`
       : "Manual quote"
     : "—";
+  const supportsPickup = notes.localPickupSupported;
+  const shippingSavings = notes.estimatedShippingCostUsd;
 
   return (
     <Card
-      className={
+      className={`border-l-4 ${
+        supportsPickup ? "border-l-amber-400" : "border-l-violet-400"
+      } ${
         isTopRank
-          ? "border-emerald-200 bg-gradient-to-br from-white to-emerald-50/40"
-          : "border-zinc-200"
-      }
+          ? "rounded-md border-emerald-200 bg-gradient-to-br from-white to-emerald-50/40"
+          : "rounded-md border-zinc-200 bg-white"
+      }`}
     >
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_13rem] lg:items-start">
+        <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             {isPaidOrder ? (
               <Badge tone="brand" icon={<CheckCircle2 className="h-3.5 w-3.5" />}>
@@ -857,14 +978,88 @@ function RecommendationCard({
               <Badge tone="brand">Best current fit</Badge>
             ) : null}
             {isSelected ? <Badge tone="brand">Selected</Badge> : null}
+            {supportsPickup ? (
+              <Badge tone="warning" icon={<MapPin className="h-3.5 w-3.5" />}>
+                Local pickup
+              </Badge>
+            ) : (
+              <Badge tone="brand" icon={<Truck className="h-3.5 w-3.5" />}>
+                Shipping
+              </Badge>
+            )}
           </div>
-          <h3 className="mt-1 text-2xl font-semibold">
+          <h3 className="mt-2 text-2xl font-semibold">
             {recommendation.providerName}
           </h3>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-700">
-            {recommendation.explanation}
+            {cleanExplanation(recommendation.explanation)}
           </p>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            <CompactNote
+              label="Turnaround"
+              value={`${notes.estimatedTurnaroundDays} days`}
+              icon={<Clock3 className="h-3.5 w-3.5" />}
+            />
+            <CompactNote
+              label="Distance"
+              value={`${notes.estimatedDistanceMiles} mi`}
+              icon={<MapPin className="h-3.5 w-3.5" />}
+            />
+            <CompactNote
+              label="Capacity"
+              value={`${notes.availableCapacityUnits}/${notes.requestedUnits} units`}
+              icon={<Gauge className="h-3.5 w-3.5" />}
+            />
+            <CompactNote
+              label="Pickup"
+              value={supportsPickup ? "Supported" : "Not supported"}
+              icon={<PackageCheck className="h-3.5 w-3.5" />}
+              highlight={supportsPickup}
+            />
+            <CompactNote
+              label="Est. price"
+              value={priceLabel}
+              icon={<CreditCard className="h-3.5 w-3.5" />}
+            />
+          </div>
+
+          {supportsPickup && shippingSavings > 0 ? (
+            <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950">
+              Save ~${shippingSavings.toFixed(2)} on shipping by picking up
+              locally from this shop.
+            </div>
+          ) : null}
+
+          {!isPaidOrder ? (
+            <div className="mt-5">
+              <h4 className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-500">
+                Why this ranked high
+              </h4>
+              <div className="mt-3 grid gap-3 md:grid-cols-3">
+                {strongestFactors.map((factor) => (
+                  <div
+                    key={factor.factor}
+                    className="rounded-md border border-zinc-200 bg-zinc-50 p-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold">
+                          {factorLabels[factor.factor]}
+                        </p>
+                        <p className="mt-1 text-sm leading-6 text-zinc-600">
+                          {getMerchantFactorExplanation(factor.factor, factor.note)}
+                        </p>
+                      </div>
+                      <MiniScore value={formatScoreOutOfTen(factor.score)} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
+
         <div className="flex shrink-0 flex-col gap-3">
           <div className="rounded-2xl bg-zinc-950 px-5 py-4 text-center text-white shadow-sm shadow-zinc-950/20">
             <p className="text-xs uppercase tracking-[0.16em] text-zinc-400">
@@ -891,67 +1086,6 @@ function RecommendationCard({
           ) : null}
         </div>
       </div>
-
-      <div className="mt-5 flex flex-wrap gap-2">
-        <CompactNote
-          label="Turnaround"
-          value={`${notes.estimatedTurnaroundDays} days`}
-          icon={<Clock3 className="h-3.5 w-3.5" />}
-        />
-        <CompactNote
-          label="Shipping"
-          value={`$${notes.estimatedShippingCostUsd.toFixed(2)}`}
-          icon={<Truck className="h-3.5 w-3.5" />}
-        />
-        <CompactNote
-          label="Distance"
-          value={`${notes.estimatedDistanceMiles} mi`}
-          icon={<MapPin className="h-3.5 w-3.5" />}
-        />
-        <CompactNote
-          label="Capacity"
-          value={`${notes.availableCapacityUnits}/${notes.requestedUnits} units`}
-          icon={<Gauge className="h-3.5 w-3.5" />}
-        />
-        <CompactNote
-          label="Pickup"
-          value={notes.localPickupSupported ? "Supported" : "Not supported"}
-          icon={<PackageCheck className="h-3.5 w-3.5" />}
-        />
-        <CompactNote
-          label="Est. price"
-          value={priceLabel}
-          icon={<CreditCard className="h-3.5 w-3.5" />}
-        />
-      </div>
-
-      {!isPaidOrder ? (
-      <div className="mt-5">
-        <h4 className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-500">
-          Why this ranked high
-        </h4>
-        <div className="mt-3 grid gap-3 md:grid-cols-3">
-          {strongestFactors.map((factor) => (
-            <div
-              key={factor.factor}
-              className="rounded-md border border-zinc-200 bg-zinc-50 p-4"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold">
-                    {factorLabels[factor.factor]}
-                  </p>
-                  <p className="mt-1 text-sm leading-6 text-zinc-600">
-                    {getMerchantFactorExplanation(factor.factor, factor.note)}
-                  </p>
-                </div>
-                <MiniScore value={formatScoreOutOfTen(factor.score)} />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-      ) : null}
 
       {!isPaidOrder ? (
       <details className="mt-4 rounded-md border border-zinc-200 bg-zinc-50">
@@ -1201,6 +1335,23 @@ function hasFulfillmentDetails(
   );
 }
 
+function isPickupOrLocalFirstOrder(order: MerchantOrder) {
+  return order.localPickupPreferred || order.fulfillmentGoal === "local_first";
+}
+
+function getOrderQuantity(order: MerchantOrder) {
+  return order.items.reduce((total, item) => total + item.quantity, 0);
+}
+
+function cleanExplanation(explanation: string) {
+  return explanation
+    .replace(/mocked miles? of distance,?\s*/gi, "")
+    .replace(/and a \$[\d.]+ mocked shipping estimate\.?\s*/gi, "")
+    .replace(/with a ([\d.]+)-day SLA,\s*/gi, "with a $1-day SLA, ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 function getNonPayableMessage(
   selectedRecommendation: PersistedProviderRecommendation | null,
   checkoutHref: string | null,
@@ -1255,19 +1406,35 @@ function CompactNote({
   label,
   value,
   icon,
+  highlight = false,
 }: {
   label: string;
   value: string;
   icon?: React.ReactNode;
+  highlight?: boolean;
 }) {
   return (
-    <div className="flex items-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-2 shadow-sm shadow-zinc-950/5">
-      {icon ? <span className="text-zinc-500">{icon}</span> : null}
+    <div
+      className={`flex items-center gap-2 rounded-full border px-3 py-2 shadow-sm shadow-zinc-950/5 ${
+        highlight
+          ? "border-amber-200 bg-amber-50 text-amber-950"
+          : "border-zinc-200 bg-zinc-50 text-zinc-950"
+      }`}
+    >
+      {icon ? (
+        <span className={highlight ? "text-amber-700" : "text-zinc-500"}>
+          {icon}
+        </span>
+      ) : null}
       <div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+        <p
+          className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${
+            highlight ? "text-amber-700" : "text-zinc-500"
+          }`}
+        >
           {label}
         </p>
-        <p className="mt-0.5 text-sm font-semibold text-zinc-950">{value}</p>
+        <p className="mt-0.5 text-sm font-semibold">{value}</p>
       </div>
     </div>
   );
