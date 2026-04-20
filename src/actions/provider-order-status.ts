@@ -52,6 +52,12 @@ export async function advanceOrderStatusAction(formData: FormData) {
     throw new Error(`No valid next status from '${currentStatus}'`);
   }
 
+  await updateFulfillmentDetailsForProvider(
+    merchantOrderId,
+    providerProfileId,
+    formData,
+  );
+
   const updateResult = await (supabase.from("merchant_orders") as any)
     .update({ status: nextStatus, updated_at: new Date().toISOString() })
     .eq("id", merchantOrderId);
@@ -62,4 +68,68 @@ export async function advanceOrderStatusAction(formData: FormData) {
 
   revalidatePath("/provider");
   revalidatePath("/merchant");
+}
+
+export async function updateFulfillmentDetailsAction(formData: FormData) {
+  const user = await requireRole("provider");
+  const merchantOrderId = String(formData.get("merchantOrderId") ?? "").trim();
+  if (!merchantOrderId) throw new Error("Missing merchantOrderId");
+
+  const providerProfileId = await getProviderProfileId(user.id);
+  if (!providerProfileId) throw new Error("Provider profile not found");
+
+  await updateFulfillmentDetailsForProvider(
+    merchantOrderId,
+    providerProfileId,
+    formData,
+  );
+
+  revalidatePath("/provider");
+  revalidatePath("/merchant");
+}
+
+async function updateFulfillmentDetailsForProvider(
+  merchantOrderId: string,
+  providerProfileId: string,
+  formData: FormData,
+) {
+  const supabase = createSupabaseServiceRoleClient();
+
+  const details = {
+    provider_notes: normalizeOptionalText(formData.get("providerNotes")),
+    pickup_instructions: normalizeOptionalText(
+      formData.get("pickupInstructions"),
+    ),
+    ready_for_pickup_note: normalizeOptionalText(
+      formData.get("readyForPickupNote"),
+    ),
+    carrier_name: normalizeOptionalText(formData.get("carrierName")),
+    tracking_number: normalizeOptionalText(formData.get("trackingNumber")),
+    estimated_ready_date: normalizeOptionalDate(
+      formData.get("estimatedReadyDate"),
+    ),
+    shipping_note: normalizeOptionalText(formData.get("shippingNote")),
+    fulfillment_details_updated_at: new Date().toISOString(),
+  };
+
+  const result = await supabase
+    .from("order_assignments")
+    .update(details as never)
+    .eq("merchant_order_id", merchantOrderId)
+    .eq("provider_profile_id", providerProfileId)
+    .eq("status", "accepted");
+
+  if (result.error) throw new Error(result.error.message);
+}
+
+function normalizeOptionalText(value: FormDataEntryValue | null) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function normalizeOptionalDate(value: FormDataEntryValue | null) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? trimmed : null;
 }

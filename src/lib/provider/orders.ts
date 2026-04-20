@@ -1,5 +1,5 @@
 import { createSupabaseServiceRoleClient } from "@/lib/supabase";
-import type { FulfillmentGoal, GarmentType } from "@/types";
+import type { FulfillmentGoal, GarmentType, OrderFulfillmentDetails } from "@/types";
 import type { Database } from "@/types/database";
 
 type ProviderProfileRow = Database["public"]["Tables"]["provider_profiles"]["Row"];
@@ -29,6 +29,7 @@ export type ProviderAssignment = {
   fulfillmentZip: string;
   fulfillmentGoal: FulfillmentGoal;
   orderStatus: OrderStatus;
+  fulfillmentDetails: OrderFulfillmentDetails;
 };
 
 export type ProviderAssignments = {
@@ -53,7 +54,7 @@ export async function loadProviderAssignments(
 
   // Load assignments for this provider (pending + accepted only)
   const assignmentsResult = await (supabase.from("order_assignments") as any)
-    .select("id, merchant_order_id, status, assigned_at, responded_at")
+    .select("id, merchant_order_id, status, assigned_at, responded_at, provider_notes, pickup_instructions, ready_for_pickup_note, carrier_name, tracking_number, estimated_ready_date, shipping_note, fulfillment_details_updated_at")
     .eq("provider_profile_id", providerProfileId)
     .in("status", ["pending", "accepted"])
     .order("assigned_at", { ascending: false });
@@ -68,6 +69,14 @@ export async function loadProviderAssignments(
     status: "pending" | "accepted" | "declined";
     assigned_at: string;
     responded_at: string | null;
+    provider_notes: string | null;
+    pickup_instructions: string | null;
+    ready_for_pickup_note: string | null;
+    carrier_name: string | null;
+    tracking_number: string | null;
+    estimated_ready_date: string | null;
+    shipping_note: string | null;
+    fulfillment_details_updated_at: string | null;
   }>;
 
   if (assignments.length === 0) return { pending: [], accepted: [] };
@@ -120,6 +129,16 @@ export async function loadProviderAssignments(
       fulfillmentZip: order?.fulfillment_zip ?? "",
       fulfillmentGoal: (order?.fulfillment_goal ?? "local_first") as FulfillmentGoal,
       orderStatus: (order?.status ?? "accepted") as OrderStatus,
+      fulfillmentDetails: {
+        providerNotes: a.provider_notes,
+        pickupInstructions: a.pickup_instructions,
+        readyForPickupNote: a.ready_for_pickup_note,
+        carrierName: a.carrier_name,
+        trackingNumber: a.tracking_number,
+        estimatedReadyDate: a.estimated_ready_date,
+        shippingNote: a.shipping_note,
+        updatedAt: a.fulfillment_details_updated_at,
+      },
     };
   });
 

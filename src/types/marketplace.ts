@@ -64,6 +64,18 @@ export type MerchantProviderAssignmentSummary = {
   status: "pending" | "accepted" | "declined";
   assignedAt: string;
   respondedAt?: string | null;
+  fulfillmentDetails?: OrderFulfillmentDetails | null;
+};
+
+export type OrderFulfillmentDetails = {
+  providerNotes?: string | null;
+  pickupInstructions?: string | null;
+  readyForPickupNote?: string | null;
+  carrierName?: string | null;
+  trackingNumber?: string | null;
+  estimatedReadyDate?: string | null;
+  shippingNote?: string | null;
+  updatedAt?: string | null;
 };
 
 export type Profile = {

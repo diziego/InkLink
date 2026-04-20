@@ -4,10 +4,12 @@ import {
   Boxes,
   Building2,
   CheckCircle2,
+  ClipboardList,
   Clock3,
   Factory,
   Gauge,
   MapPin,
+  MessageSquare,
   PackageCheck,
   PackageOpen,
   Printer,
@@ -26,7 +28,10 @@ import { MockNotice } from "@/components/ui/mock-notice";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { StatCard } from "@/components/ui/stat-card";
 import { acceptAssignmentAction, declineAssignmentAction } from "@/actions/provider-orders";
-import { advanceOrderStatusAction } from "@/actions/provider-order-status";
+import {
+  advanceOrderStatusAction,
+  updateFulfillmentDetailsAction,
+} from "@/actions/provider-order-status";
 import { saveProviderInventoryAction } from "@/actions/provider-inventory";
 import { saveProviderOnboardingAction } from "@/actions/provider-onboarding";
 import { savePricingProfileAction } from "@/actions/provider-pricing";
@@ -1017,20 +1022,12 @@ function AcceptedOrders({ assignments }: { assignments: ProviderAssignment[] }) 
               </div>
               <div className="flex shrink-0 flex-col items-end gap-2">
                 <StatusBadge status={assignment.orderStatus} />
-                {nextLabel ? (
-                  <form action={advanceOrderStatusAction}>
-                    <input type="hidden" name="merchantOrderId" value={assignment.merchantOrderId} />
-                    <button
-                      type="submit"
-                      className="inline-flex h-9 items-center justify-center gap-2 rounded-full bg-indigo-950 px-4 text-sm font-semibold text-white shadow-sm shadow-indigo-950/20 transition hover:bg-indigo-900"
-                    >
-                      <PackageCheck className="h-4 w-4" />
-                      {nextLabel}
-                    </button>
-                  </form>
-                ) : null}
               </div>
             </div>
+            <FulfillmentDetailsForm
+              assignment={assignment}
+              nextStatusLabel={nextLabel}
+            />
             <p className="mt-3 text-xs text-zinc-400">
               Released to queue {assignment.respondedAt ? formatDateTime(assignment.respondedAt) : "—"}
             </p>
@@ -1038,6 +1035,128 @@ function AcceptedOrders({ assignments }: { assignments: ProviderAssignment[] }) 
         );
       })}
     </div>
+  );
+}
+
+function FulfillmentDetailsForm({
+  assignment,
+  nextStatusLabel,
+}: {
+  assignment: ProviderAssignment;
+  nextStatusLabel?: string;
+}) {
+  const details = assignment.fulfillmentDetails;
+
+  return (
+    <form action={updateFulfillmentDetailsAction} className="mt-5 rounded-2xl border border-zinc-200 bg-white p-4">
+      <input
+        type="hidden"
+        name="merchantOrderId"
+        value={assignment.merchantOrderId}
+      />
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <ProviderIconCircle>
+            <ClipboardList className="h-4 w-4" />
+          </ProviderIconCircle>
+          <div>
+            <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-500">
+              Fulfillment details
+            </h3>
+            <p className="mt-1 text-sm text-zinc-600">
+              Merchant-facing production notes, pickup, and tracking info.
+            </p>
+          </div>
+        </div>
+        {details.updatedAt ? (
+          <p className="text-xs font-medium uppercase tracking-[0.14em] text-zinc-400">
+            Updated {formatDateTime(details.updatedAt)}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <FormField label="Provider notes">
+          <textarea
+            name="providerNotes"
+            defaultValue={details.providerNotes ?? ""}
+            className={textareaClassName}
+            placeholder="Production note visible to the merchant"
+          />
+        </FormField>
+        <FormField label="Estimated ready date">
+          <input
+            name="estimatedReadyDate"
+            type="date"
+            defaultValue={details.estimatedReadyDate ?? ""}
+            className={inputClassName}
+          />
+        </FormField>
+        <FormField label="Pickup instructions">
+          <textarea
+            name="pickupInstructions"
+            defaultValue={details.pickupInstructions ?? ""}
+            className={textareaClassName}
+            placeholder="Where and how the merchant should pick up"
+          />
+        </FormField>
+        <FormField label="Ready-for-pickup note">
+          <textarea
+            name="readyForPickupNote"
+            defaultValue={details.readyForPickupNote ?? ""}
+            className={textareaClassName}
+            placeholder="Add when marking the order ready"
+          />
+        </FormField>
+        <FormField label="Carrier">
+          <input
+            name="carrierName"
+            defaultValue={details.carrierName ?? ""}
+            className={inputClassName}
+            placeholder="UPS, FedEx, USPS, local courier"
+          />
+        </FormField>
+        <FormField label="Tracking number">
+          <input
+            name="trackingNumber"
+            defaultValue={details.trackingNumber ?? ""}
+            className={inputClassName}
+            placeholder="Tracking or courier reference"
+          />
+        </FormField>
+        <FormField label="Shipping note" className="lg:col-span-2">
+          <textarea
+            name="shippingNote"
+            defaultValue={details.shippingNote ?? ""}
+            className={textareaClassName}
+            placeholder="Delivery notes, package count, or handoff details"
+          />
+        </FormField>
+      </div>
+
+      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <button
+          type="submit"
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-50"
+        >
+          <MessageSquare className="h-4 w-4" />
+          Save details
+        </button>
+        {nextStatusLabel ? (
+          <button
+            type="submit"
+            formAction={advanceOrderStatusAction}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-indigo-950 px-4 text-sm font-semibold text-white shadow-sm shadow-indigo-950/20 transition hover:bg-indigo-900"
+          >
+            <PackageCheck className="h-4 w-4" />
+            {nextStatusLabel}
+          </button>
+        ) : null}
+        <p className="text-sm text-zinc-500">
+          Status changes save these details at the same time.
+        </p>
+      </div>
+    </form>
   );
 }
 

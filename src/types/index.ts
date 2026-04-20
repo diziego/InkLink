@@ -7,6 +7,7 @@ export type {
   MerchantPaymentSummary,
   MerchantProviderAssignmentSummary,
   MerchantProfile,
+  OrderFulfillmentDetails,
   OrderItem,
   OrderStatus,
   PaymentStatus,

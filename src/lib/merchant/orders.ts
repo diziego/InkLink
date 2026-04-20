@@ -451,6 +451,16 @@ function adaptAssignmentRow(
     status: assignment.status,
     assignedAt: assignment.assigned_at,
     respondedAt: assignment.responded_at,
+    fulfillmentDetails: {
+      providerNotes: assignment.provider_notes,
+      pickupInstructions: assignment.pickup_instructions,
+      readyForPickupNote: assignment.ready_for_pickup_note,
+      carrierName: assignment.carrier_name,
+      trackingNumber: assignment.tracking_number,
+      estimatedReadyDate: assignment.estimated_ready_date,
+      shippingNote: assignment.shipping_note,
+      updatedAt: assignment.fulfillment_details_updated_at,
+    },
   };
 }
 

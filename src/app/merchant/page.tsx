@@ -1,8 +1,10 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import {
+  CalendarDays,
   CheckCircle2,
   CircleDashed,
+  ClipboardList,
   Clock3,
   CreditCard,
   Gauge,
@@ -262,6 +264,8 @@ export default async function MerchantPage({ searchParams }: MerchantPageProps) 
 
             <OrderTimeline order={savedOrder} />
 
+            <FulfillmentDetailsPanel order={savedOrder} />
+
             {!isPaidOrder && topRecommendation ? (
               <FirstRankSummary recommendation={topRecommendation} />
             ) : null}
@@ -393,6 +397,101 @@ function IconCircle({
     >
       {children}
     </div>
+  );
+}
+
+function FulfillmentDetailsPanel({ order }: { order: MerchantOrder }) {
+  const details = order.providerAssignmentSummary?.fulfillmentDetails;
+  if (!details || !hasFulfillmentDetails(details)) {
+    return null;
+  }
+
+  const detailItems = [
+    {
+      label: "Provider notes",
+      value: details.providerNotes,
+      icon: <ClipboardList className="h-4 w-4" />,
+    },
+    {
+      label: "Estimated ready date",
+      value: details.estimatedReadyDate
+        ? formatDateOnly(details.estimatedReadyDate)
+        : null,
+      icon: <CalendarDays className="h-4 w-4" />,
+    },
+    {
+      label: "Pickup instructions",
+      value: details.pickupInstructions,
+      icon: <MapPin className="h-4 w-4" />,
+    },
+    {
+      label: "Ready note",
+      value: details.readyForPickupNote,
+      icon: <PackageCheck className="h-4 w-4" />,
+    },
+    {
+      label: "Carrier",
+      value: details.carrierName,
+      icon: <Truck className="h-4 w-4" />,
+    },
+    {
+      label: "Tracking number",
+      value: details.trackingNumber,
+      icon: <Route className="h-4 w-4" />,
+    },
+    {
+      label: "Shipping note",
+      value: details.shippingNote,
+      icon: <Truck className="h-4 w-4" />,
+    },
+  ].filter((item) => item.value);
+
+  return (
+    <Card className="mb-5 border-zinc-200 bg-gradient-to-br from-white to-zinc-50">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex gap-4">
+          <IconCircle tone="zinc">
+            <ClipboardList className="h-5 w-5" />
+          </IconCircle>
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-500">
+              Latest provider update
+            </p>
+            <h3 className="mt-2 text-2xl font-semibold text-zinc-950">
+              Fulfillment details
+            </h3>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-600">
+              Customer-facing production, pickup, and shipping information from
+              your selected provider.
+            </p>
+          </div>
+        </div>
+        {details.updatedAt ? (
+          <p className="text-xs font-medium uppercase tracking-[0.14em] text-zinc-400">
+            Updated {formatTimelineDate(details.updatedAt)}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="mt-5 grid gap-3 md:grid-cols-2">
+        {detailItems.map((item) => (
+          <div
+            key={item.label}
+            className="flex gap-3 rounded-2xl border border-zinc-200 bg-white px-4 py-3 shadow-sm shadow-zinc-950/5"
+          >
+            <span className="mt-0.5 text-zinc-500">{item.icon}</span>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">
+                {item.label}
+              </p>
+              <p className="mt-1 text-sm leading-6 text-zinc-800">
+                {item.value}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
   );
 }
 
@@ -1076,6 +1175,30 @@ function formatTimelineDate(value: string) {
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+function formatDateOnly(value: string) {
+  return new Date(`${value}T00:00:00`).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function hasFulfillmentDetails(
+  details: NonNullable<
+    NonNullable<MerchantOrder["providerAssignmentSummary"]>["fulfillmentDetails"]
+  >,
+) {
+  return Boolean(
+    details.providerNotes ||
+      details.pickupInstructions ||
+      details.readyForPickupNote ||
+      details.carrierName ||
+      details.trackingNumber ||
+      details.estimatedReadyDate ||
+      details.shippingNote,
+  );
 }
 
 function getNonPayableMessage(

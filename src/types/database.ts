@@ -528,6 +528,14 @@ export type Database = {
           status: Database["public"]["Enums"]["assignment_status"];
           assigned_at: string;
           responded_at: string | null;
+          provider_notes: string | null;
+          pickup_instructions: string | null;
+          ready_for_pickup_note: string | null;
+          carrier_name: string | null;
+          tracking_number: string | null;
+          estimated_ready_date: string | null;
+          shipping_note: string | null;
+          fulfillment_details_updated_at: string | null;
         };
         Insert: {
           id?: string;
@@ -536,10 +544,26 @@ export type Database = {
           status?: Database["public"]["Enums"]["assignment_status"];
           assigned_at?: string;
           responded_at?: string | null;
+          provider_notes?: string | null;
+          pickup_instructions?: string | null;
+          ready_for_pickup_note?: string | null;
+          carrier_name?: string | null;
+          tracking_number?: string | null;
+          estimated_ready_date?: string | null;
+          shipping_note?: string | null;
+          fulfillment_details_updated_at?: string | null;
         };
         Update: {
           status?: Database["public"]["Enums"]["assignment_status"];
           responded_at?: string | null;
+          provider_notes?: string | null;
+          pickup_instructions?: string | null;
+          ready_for_pickup_note?: string | null;
+          carrier_name?: string | null;
+          tracking_number?: string | null;
+          estimated_ready_date?: string | null;
+          shipping_note?: string | null;
+          fulfillment_details_updated_at?: string | null;
         };
       };
       payments: {
