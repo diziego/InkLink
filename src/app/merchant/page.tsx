@@ -156,6 +156,12 @@ export default async function MerchantPage({ searchParams }: MerchantPageProps) 
       : null;
   const selectedRecommendationForOrder =
     savedOrder ? getSelectedRecommendation(savedOrder, recommendations) : null;
+  const isPaidOrder =
+    savedOrder?.status === "paid" || savedOrder?.paymentSummary?.status === "paid";
+  const visibleRecommendations =
+    isPaidOrder && selectedRecommendationForOrder
+      ? [selectedRecommendationForOrder]
+      : recommendations;
 
   // Load order history
   let orderHistory: MerchantOrderSummary[] = [];
@@ -210,16 +216,20 @@ export default async function MerchantPage({ searchParams }: MerchantPageProps) 
           <section className="pt-10 pb-14">
             <div className="mb-8">
               <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-600">
-                {savedOrder.status === "provider_selected"
+                {isPaidOrder
+                  ? "Payment confirmed"
+                  : savedOrder.status === "provider_selected"
                   ? "Provider selected"
                   : "Matching providers"}
               </p>
               <h2 className="mt-2 text-3xl font-semibold text-zinc-950">
-                {savedOrder.status === "provider_selected"
+                {isPaidOrder
+                  ? "Your selected provider is ready to produce"
+                  : savedOrder.status === "provider_selected"
                   ? "Your selected provider"
                   : "Choose your print partner"}
               </h2>
-              {savedOrder.status !== "provider_selected" && (
+              {!isPaidOrder && savedOrder.status !== "provider_selected" && (
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-600">
                   We matched your order with the best-fit providers based on
                   print method, turnaround, location, and pricing. Compare your
@@ -236,19 +246,20 @@ export default async function MerchantPage({ searchParams }: MerchantPageProps) 
               selectedRecommendation={selectedRecommendationForOrder}
             />
 
-            {topRecommendation ? (
+            {!isPaidOrder && topRecommendation ? (
               <FirstRankSummary recommendation={topRecommendation} />
             ) : null}
 
-            {recommendations.length > 0 ? (
+            {visibleRecommendations.length > 0 ? (
               <div className="grid gap-5">
-                {recommendations.map((recommendation, index) => (
+                {visibleRecommendations.map((recommendation, index) => (
                   <RecommendationCard
                     key={recommendation.providerId}
                     rank={index + 1}
                     recommendation={recommendation}
                     orderId={orderId}
                     orderStatus={savedOrder!.status}
+                    isPaidOrder={isPaidOrder}
                     selectedProviderProfileId={
                       savedOrder!.selectedProviderProfileId ?? null
                     }
@@ -561,6 +572,7 @@ function RecommendationCard({
   orderStatus,
   selectedProviderProfileId,
   selectedRecommendationSnapshotId,
+  isPaidOrder = false,
 }: {
   rank: number;
   recommendation: PersistedProviderRecommendation;
@@ -568,6 +580,7 @@ function RecommendationCard({
   orderStatus: OrderStatus;
   selectedProviderProfileId: string | null;
   selectedRecommendationSnapshotId: string | null;
+  isPaidOrder?: boolean;
 }) {
   const notes = recommendation.operationalNotes;
   const isTopRank = rank === 1;
@@ -604,8 +617,8 @@ function RecommendationCard({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <Badge>Rank {rank}</Badge>
-            {isTopRank ? <Badge>Best current fit</Badge> : null}
+            {isPaidOrder ? <Badge tone="brand">Paid provider</Badge> : <Badge>Rank {rank}</Badge>}
+            {!isPaidOrder && isTopRank ? <Badge>Best current fit</Badge> : null}
             {isSelected ? <Badge tone="brand">Selected</Badge> : null}
           </div>
           <h3 className="mt-1 text-2xl font-semibold">
@@ -666,6 +679,7 @@ function RecommendationCard({
         <CompactNote label="Est. price" value={priceLabel} />
       </div>
 
+      {!isPaidOrder ? (
       <div className="mt-5">
         <h4 className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-500">
           Why this ranked high
@@ -691,7 +705,9 @@ function RecommendationCard({
           ))}
         </div>
       </div>
+      ) : null}
 
+      {!isPaidOrder ? (
       <details className="mt-4 rounded-md border border-zinc-200 bg-zinc-50">
         <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-zinc-700 marker:hidden">
           See full breakdown
@@ -729,6 +745,7 @@ function RecommendationCard({
           </div>
         </div>
       </details>
+      ) : null}
     </Card>
   );
 }

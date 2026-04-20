@@ -1,5 +1,8 @@
 import { createSupabaseServiceRoleClient } from "@/lib/supabase";
 import type { FulfillmentGoal, GarmentType } from "@/types";
+import type { Database } from "@/types/database";
+
+type ProviderProfileRow = Database["public"]["Tables"]["provider_profiles"]["Row"];
 
 export type OrderStatus =
   | "draft"
@@ -31,6 +34,12 @@ export type ProviderAssignment = {
 export type ProviderAssignments = {
   pending: ProviderAssignment[];
   accepted: ProviderAssignment[];
+};
+
+export type ProviderProfileSummary = {
+  id: string;
+  businessName: string;
+  verificationStatus: ProviderProfileRow["verification_status"];
 };
 
 /**
@@ -140,4 +149,35 @@ export async function getProviderProfileId(
 
   if (result.error) throw new Error(result.error.message);
   return (result.data as { id: string } | null)?.id ?? null;
+}
+
+/**
+ * Resolve the provider profile owned by the current auth user. Queue visibility
+ * is intentionally tied to this id, so sandbox/test users must own the same
+ * provider profile that merchants select.
+ */
+export async function getProviderProfileSummary(
+  profileId: string,
+): Promise<ProviderProfileSummary | null> {
+  const supabase = createSupabaseServiceRoleClient();
+
+  const result = await (supabase.from("provider_profiles") as any)
+    .select("id, business_name, verification_status")
+    .eq("profile_id", profileId)
+    .maybeSingle();
+
+  if (result.error) throw new Error(result.error.message);
+
+  const row = result.data as Pick<
+    ProviderProfileRow,
+    "id" | "business_name" | "verification_status"
+  > | null;
+
+  if (!row) return null;
+
+  return {
+    id: row.id,
+    businessName: row.business_name,
+    verificationStatus: row.verification_status,
+  };
 }

@@ -28,9 +28,10 @@ import {
   type ProviderInventoryData,
 } from "@/lib/provider/inventory";
 import {
-  getProviderProfileId,
+  getProviderProfileSummary,
   loadProviderAssignments,
   type ProviderAssignment,
+  type ProviderProfileSummary,
 } from "@/lib/provider/orders";
 import {
   loadProviderPricingProfiles,
@@ -64,8 +65,9 @@ export default async function ProviderPage({
     loadProviderInventoryData(user.id),
   ]);
 
-  // Load incoming assignments and pricing profiles if a provider profile exists
-  const providerProfileId = await getProviderProfileId(user.id);
+  // Queue visibility is scoped to the provider profile owned by this login.
+  const providerProfileSummary = await getProviderProfileSummary(user.id);
+  const providerProfileId = providerProfileSummary?.id ?? null;
   const [
     { pending: pendingAssignments, accepted: acceptedAssignments },
     pricingProfiles,
@@ -118,26 +120,35 @@ export default async function ProviderPage({
         <section className="pb-12">
           <div className="mb-6">
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-zinc-500">
-              Order inbox
+              Production queue
             </p>
-            <h2 className="mt-2 text-3xl font-semibold">Incoming orders</h2>
+            <h2 className="mt-2 text-3xl font-semibold">Paid active jobs</h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">
-              Orders matched to your provider profile by the routing engine.
-              Accept to claim the job and move it to production. Decline to pass.
+              Paid merchant orders appear here automatically after Stripe
+              confirms payment and PrintPair releases the selected provider into
+              the queue.
             </p>
           </div>
-          <IncomingOrders assignments={pendingAssignments} hasProviderProfile={!!providerProfileId} />
+          <ProviderQueueIdentity profile={providerProfileSummary} />
+          <ActiveProductionQueue
+            assignments={acceptedAssignments}
+            hasProviderProfile={!!providerProfileId}
+          />
         </section>
 
-        {acceptedAssignments.length > 0 && (
+        {pendingAssignments.length > 0 && (
           <section className="pb-12">
             <div className="mb-6">
               <p className="text-sm font-medium uppercase tracking-[0.2em] text-zinc-500">
-                Accepted
+                Legacy pending matches
               </p>
-              <h2 className="mt-2 text-3xl font-semibold">Accepted orders</h2>
+              <h2 className="mt-2 text-3xl font-semibold">Manual review queue</h2>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">
+                These are older pre-payment match records. New paid PrintPair
+                orders skip this step and enter the active queue automatically.
+              </p>
             </div>
-            <AcceptedOrders assignments={acceptedAssignments} />
+            <LegacyPendingOrders assignments={pendingAssignments} />
           </section>
         )}
 
@@ -732,7 +743,27 @@ function TagGroup({ title, values }: { title: string; values: string[] }) {
   );
 }
 
-function IncomingOrders({
+function ProviderQueueIdentity({
+  profile,
+}: {
+  profile: ProviderProfileSummary | null;
+}) {
+  if (!profile) {
+    return null;
+  }
+
+  return (
+    <div className="mb-4 rounded-md border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-700">
+      <span className="font-semibold text-zinc-950">Viewing queue for:</span>{" "}
+      {profile.businessName}
+      <span className="ml-2 text-zinc-500">
+        ({profile.verificationStatus.replaceAll("_", " ")})
+      </span>
+    </div>
+  );
+}
+
+function ActiveProductionQueue({
   assignments,
   hasProviderProfile,
 }: {
@@ -743,8 +774,9 @@ function IncomingOrders({
     return (
       <Card className="shadow-sm">
         <p className="text-sm leading-6 text-zinc-600">
-          Save your provider onboarding first. Orders will appear here once your
-          profile is live and matched by the routing engine.
+          No provider profile is linked to this login yet. Save provider
+          onboarding first, then paid orders selected for that profile will
+          appear here.
         </p>
       </Card>
     );
@@ -754,11 +786,23 @@ function IncomingOrders({
     return (
       <Card className="shadow-sm">
         <p className="text-sm leading-6 text-zinc-600">
-          No pending orders right now. New matches will appear here when a
-          merchant submits an order that fits your capabilities.
+          No paid active jobs right now. When a merchant pays for an order after
+          selecting your shop, it will appear here automatically.
         </p>
       </Card>
     );
+  }
+
+  return <AcceptedOrders assignments={assignments} />;
+}
+
+function LegacyPendingOrders({
+  assignments,
+}: {
+  assignments: ProviderAssignment[];
+}) {
+  if (assignments.length === 0) {
+    return null;
   }
 
   return (
@@ -791,7 +835,7 @@ function IncomingOrders({
                   type="submit"
                   className="inline-flex h-9 items-center justify-center rounded-md bg-indigo-950 px-4 text-sm font-semibold text-white transition hover:bg-indigo-900"
                 >
-                  Accept
+                  Move to active
                 </button>
               </form>
               <form action={declineAssignmentAction}>
@@ -816,7 +860,7 @@ function IncomingOrders({
 
 const ORDER_STATUS_LABELS: Record<string, string> = {
   paid: "Paid",
-  accepted: "Accepted",
+  accepted: "Active",
   in_production: "In production",
   ready: "Ready for pickup / ship",
   shipped: "Shipped",
@@ -875,7 +919,7 @@ function AcceptedOrders({ assignments }: { assignments: ProviderAssignment[] }) 
               </div>
             </div>
             <p className="mt-3 text-xs text-zinc-400">
-              Accepted {assignment.respondedAt ? formatDateTime(assignment.respondedAt) : "—"}
+              Released to queue {assignment.respondedAt ? formatDateTime(assignment.respondedAt) : "—"}
             </p>
           </Card>
         );
