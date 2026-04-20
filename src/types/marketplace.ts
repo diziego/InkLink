@@ -59,6 +59,13 @@ export type MerchantPaymentSummary = {
   paidAt?: string | null;
 };
 
+export type MerchantProviderAssignmentSummary = {
+  id: string;
+  status: "pending" | "accepted" | "declined";
+  assignedAt: string;
+  respondedAt?: string | null;
+};
+
 export type Profile = {
   id: string;
   role: UserRole;
@@ -166,8 +173,10 @@ export type MerchantOrder = {
   items: OrderItem[];
   notes: string;
   createdAt: string;
+  updatedAt?: string;
   selectedProviderProfileId?: string | null;
   selectedRecommendationSnapshotId?: string | null;
   selectedEstimatedPriceCents?: number | null;
   paymentSummary?: MerchantPaymentSummary | null;
+  providerAssignmentSummary?: MerchantProviderAssignmentSummary | null;
 };

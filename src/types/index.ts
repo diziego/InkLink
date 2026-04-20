@@ -5,6 +5,7 @@ export type {
   GarmentType,
   MerchantOrder,
   MerchantPaymentSummary,
+  MerchantProviderAssignmentSummary,
   MerchantProfile,
   OrderItem,
   OrderStatus,

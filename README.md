@@ -158,9 +158,16 @@ SUPABASE_SERVICE_ROLE_KEY=...
 STRIPE_SECRET_KEY=...
 STRIPE_WEBHOOK_SECRET=...
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=...
+RESEND_API_KEY=...
+NOTIFICATION_FROM_EMAIL=PrintPair <orders@your-domain.com>
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
 DEV_PROVIDER_EMAIL=provider-demo@inklink.local
 DEV_ADMIN_EMAIL=admin-demo@inklink.local
 ```
+
+Transactional order emails use Resend. If `RESEND_API_KEY` or
+`NOTIFICATION_FROM_EMAIL` is missing, payment and order status flows still work
+and email delivery is skipped with a server log.
 
 To test hosted Stripe Checkout locally after a provider is selected:
 

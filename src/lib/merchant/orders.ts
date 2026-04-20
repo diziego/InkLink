@@ -3,11 +3,13 @@ import {
   persistRecommendationSnapshotsForOrder,
   recommendLiveProvidersForOrder,
 } from "@/lib/merchant/recommendations";
+import { sendPaymentConfirmedNotifications } from "@/lib/notifications/orders";
 import type {
   FulfillmentGoal,
   GarmentType,
   MerchantOrder,
   MerchantPaymentSummary,
+  MerchantProviderAssignmentSummary,
   OrderItem,
   PaymentStatus,
   PrintMethod,
@@ -20,6 +22,8 @@ type MerchantOrderItemRow =
 type RecommendationSnapshotRow =
   Database["public"]["Tables"]["recommendation_snapshots"]["Row"];
 type PaymentRow = Database["public"]["Tables"]["payments"]["Row"];
+type OrderAssignmentRow =
+  Database["public"]["Tables"]["order_assignments"]["Row"];
 
 export type SaveOrderInput = {
   fulfillmentZip: string;
@@ -188,6 +192,7 @@ export async function assignTopProviders(
     localPickupPreferred: input.localPickupPreferred,
     neededByDate: "",
     createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
     notes: "",
     items: [
       {
@@ -250,7 +255,18 @@ export async function loadMerchantOrderById(
   const paymentRow = paymentResult.data as PaymentRow | null;
   if (paymentResult.error) throw new Error(paymentResult.error.message);
 
-  return adaptOrderRow(orderRow, itemRows, paymentRow);
+  const assignmentResult = orderRow.selected_provider_profile_id
+    ? await supabase
+        .from("order_assignments")
+        .select("*")
+        .eq("merchant_order_id", orderId)
+        .eq("provider_profile_id", orderRow.selected_provider_profile_id)
+        .maybeSingle()
+    : { data: null, error: null };
+  const assignmentRow = assignmentResult.data as OrderAssignmentRow | null;
+  if (assignmentResult.error) throw new Error(assignmentResult.error.message);
+
+  return adaptOrderRow(orderRow, itemRows, paymentRow, assignmentRow);
 }
 
 export async function loadMerchantOrderHistory(
@@ -371,6 +387,7 @@ function adaptOrderRow(
   row: MerchantOrderRow,
   items: MerchantOrderItemRow[],
   payment: PaymentRow | null,
+  assignment: OrderAssignmentRow | null,
 ): MerchantOrder {
   return {
     id: row.id,
@@ -381,12 +398,14 @@ function adaptOrderRow(
     localPickupPreferred: row.local_pickup_preferred,
     neededByDate: row.needed_by_date ?? "",
     createdAt: row.created_at,
+    updatedAt: row.updated_at,
     notes: row.notes ?? "",
     selectedProviderProfileId: row.selected_provider_profile_id ?? null,
     selectedRecommendationSnapshotId:
       row.selected_recommendation_snapshot_id ?? null,
     selectedEstimatedPriceCents: row.selected_estimated_price_cents ?? null,
     paymentSummary: adaptPaymentRow(payment),
+    providerAssignmentSummary: adaptAssignmentRow(assignment),
     items: items.map(adaptItemRow),
   };
 }
@@ -417,6 +436,21 @@ function adaptPaymentRow(payment: PaymentRow | null): MerchantPaymentSummary | n
     amountCents: payment.amount_cents,
     checkoutSessionId: payment.stripe_checkout_session_id,
     paidAt: payment.paid_at,
+  };
+}
+
+function adaptAssignmentRow(
+  assignment: OrderAssignmentRow | null,
+): MerchantProviderAssignmentSummary | null {
+  if (!assignment) {
+    return null;
+  }
+
+  return {
+    id: assignment.id,
+    status: assignment.status,
+    assignedAt: assignment.assigned_at,
+    respondedAt: assignment.responded_at,
   };
 }
 
@@ -656,4 +690,6 @@ export async function finalizeSuccessfulPayment(input: {
   if (assignmentResult.error) {
     throw new Error(assignmentResult.error.message);
   }
+
+  await sendPaymentConfirmedNotifications(input.orderId);
 }

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/helpers";
+import { sendMerchantStatusUpdateNotification } from "@/lib/notifications/orders";
 import { getProviderProfileId } from "@/lib/provider/orders";
 import type { OrderStatus } from "@/lib/provider/orders";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase";
@@ -52,10 +53,13 @@ export async function advanceOrderStatusAction(formData: FormData) {
   }
 
   const updateResult = await (supabase.from("merchant_orders") as any)
-    .update({ status: nextStatus })
+    .update({ status: nextStatus, updated_at: new Date().toISOString() })
     .eq("id", merchantOrderId);
 
   if (updateResult.error) throw new Error(updateResult.error.message);
 
+  await sendMerchantStatusUpdateNotification(merchantOrderId, nextStatus);
+
   revalidatePath("/provider");
+  revalidatePath("/merchant");
 }
