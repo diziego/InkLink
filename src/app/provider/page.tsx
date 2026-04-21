@@ -1117,9 +1117,9 @@ function LegacyPendingOrders({
 const NEXT_STATUS_LABELS: Record<string, string> = {
   paid: "Start production",
   accepted: "Start production",
-  in_production: "Mark as ready",
-  ready: "Mark as shipped",
-  shipped: "Mark as completed",
+  in_production: "Mark ready for handoff",
+  ready: "Mark handoff complete",
+  shipped: "Mark job completed",
 };
 
 function getProviderStatusContext(status: ProviderAssignment["orderStatus"]) {
@@ -1129,30 +1129,30 @@ function getProviderStatusContext(status: ProviderAssignment["orderStatus"]) {
       return {
         label: "Ready to start",
         description:
-          "This paid order is released to your active queue. Start production when your team is ready.",
+          "This paid order is in your queue and needs production to begin.",
       };
     case "in_production":
       return {
         label: "In production",
         description:
-          "Production is underway. Keep notes and estimated ready dates current for the merchant.",
+          "Work is underway. Add notes or an estimated ready date if the merchant needs an update.",
       };
     case "ready":
       return {
         label: "Ready for handoff",
         description:
-          "This job is ready for the next fulfillment step. Add pickup or shipping details before moving it forward.",
+          "The job is ready for pickup or shipment. Add handoff details before moving it forward.",
       };
     case "shipped":
       return {
         label: "Handoff complete",
         description:
-          "The order has moved through handoff. Mark it completed when no further provider action is needed.",
+          "Pickup or shipment has been handled. Complete the job when no further provider action is needed.",
       };
     case "completed":
       return {
         label: "Completed",
-        description: "This job is complete.",
+        description: "This job is complete. Details remain available for reference or correction.",
       };
     default:
       return {
@@ -1289,7 +1289,7 @@ function AcceptedOrders({ assignments }: { assignments: ProviderAssignment[] }) 
 
             <details className="mt-4 rounded-md border border-zinc-200 bg-zinc-50">
               <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-zinc-700 marker:hidden">
-                Open production details
+                Edit production details
               </summary>
               <div className="border-t border-zinc-200 p-4">
                 <FulfillmentDetailsForm
@@ -1312,38 +1312,93 @@ function JobActionBar({
   assignment: ProviderAssignment;
   nextStatusLabel?: string;
 }) {
+  if (!nextStatusLabel) {
+    return (
+      <div className="mt-5 rounded-md border border-emerald-200 bg-emerald-50 p-3">
+        <div className="flex items-start gap-3">
+          <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700" />
+          <div>
+            <p className="text-sm font-semibold text-emerald-950">
+              Job complete
+            </p>
+            <p className="mt-1 text-sm leading-6 text-emerald-800">
+              No next provider action is needed. Production details remain
+              available below if you need to review or correct merchant-facing
+              information.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const actionContext = getProviderActionContext(assignment.orderStatus);
+
   return (
     <div className="mt-5 flex flex-col gap-3 rounded-md border border-zinc-200 bg-zinc-50 p-3 sm:flex-row sm:items-center sm:justify-between">
       <div>
-        <p className="text-sm font-semibold text-zinc-950">Next provider action</p>
+        <p className="text-sm font-semibold text-zinc-950">
+          {actionContext.title}
+        </p>
         <p className="mt-1 text-sm leading-6 text-zinc-600">
-          Advance the job from the queue card, or open production details to add
-          merchant-facing notes before saving.
+          {actionContext.description}
         </p>
       </div>
       <div className="flex shrink-0 flex-wrap gap-2">
-        {nextStatusLabel ? (
-          <form action={advanceOrderStatusAction}>
-            <input
-              type="hidden"
-              name="merchantOrderId"
-              value={assignment.merchantOrderId}
-            />
-            <HiddenFulfillmentDetailInputs assignment={assignment} />
-            <button
-              type="submit"
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-indigo-950 px-4 text-sm font-semibold text-white shadow-sm shadow-indigo-950/20 transition hover:bg-indigo-900"
-            >
-              <PackageCheck className="h-4 w-4" />
-              {nextStatusLabel}
-            </button>
-          </form>
-        ) : (
-          <Badge tone="brand">No further status action</Badge>
-        )}
+        <form action={advanceOrderStatusAction}>
+          <input
+            type="hidden"
+            name="merchantOrderId"
+            value={assignment.merchantOrderId}
+          />
+          <HiddenFulfillmentDetailInputs assignment={assignment} />
+          <button
+            type="submit"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-indigo-950 px-4 text-sm font-semibold text-white shadow-sm shadow-indigo-950/20 transition hover:bg-indigo-900"
+          >
+            <PackageCheck className="h-4 w-4" />
+            {nextStatusLabel}
+          </button>
+        </form>
       </div>
     </div>
   );
+}
+
+function getProviderActionContext(status: ProviderAssignment["orderStatus"]) {
+  switch (status) {
+    case "paid":
+    case "accepted":
+      return {
+        title: "Start this job",
+        description:
+          "Begin production when your team has reviewed the order. Details can be added before or after starting.",
+      };
+    case "in_production":
+      return {
+        title: "Ready for handoff?",
+        description:
+          "Use this when production is finished and the order is ready for pickup or shipment.",
+      };
+    case "ready":
+      return {
+        title: "Complete the handoff",
+        description:
+          "Use this after pickup or shipment has been handled. Add handoff details first if needed.",
+      };
+    case "shipped":
+      return {
+        title: "Close out the job",
+        description:
+          "Mark completed when there is no further provider action needed.",
+      };
+    default:
+      return {
+        title: "Next provider action",
+        description:
+          "Advance the job when the next production milestone is complete.",
+      };
+  }
 }
 
 function HiddenFulfillmentDetailInputs({
@@ -1404,62 +1459,90 @@ function FulfillmentDetailsForm({
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <FormField label="Provider notes">
-          <textarea
-            name="providerNotes"
-            defaultValue={details.providerNotes ?? ""}
-            className={textareaClassName}
-            placeholder="Production note visible to the merchant"
-          />
-        </FormField>
-        <FormField label="Estimated ready date">
-          <input
-            name="estimatedReadyDate"
-            type="date"
-            defaultValue={details.estimatedReadyDate ?? ""}
-            className={inputClassName}
-          />
-        </FormField>
-        <FormField label="Pickup instructions">
-          <textarea
-            name="pickupInstructions"
-            defaultValue={details.pickupInstructions ?? ""}
-            className={textareaClassName}
-            placeholder="Where and how the merchant should pick up"
-          />
-        </FormField>
-        <FormField label="Ready-for-pickup note">
-          <textarea
-            name="readyForPickupNote"
-            defaultValue={details.readyForPickupNote ?? ""}
-            className={textareaClassName}
-            placeholder="Add when marking the order ready"
-          />
-        </FormField>
-        <FormField label="Carrier">
-          <input
-            name="carrierName"
-            defaultValue={details.carrierName ?? ""}
-            className={inputClassName}
-            placeholder="UPS, FedEx, USPS, local courier"
-          />
-        </FormField>
-        <FormField label="Tracking number">
-          <input
-            name="trackingNumber"
-            defaultValue={details.trackingNumber ?? ""}
-            className={inputClassName}
-            placeholder="Tracking or courier reference"
-          />
-        </FormField>
-        <FormField label="Shipping note" className="lg:col-span-2">
-          <textarea
-            name="shippingNote"
-            defaultValue={details.shippingNote ?? ""}
-            className={textareaClassName}
-            placeholder="Delivery notes, package count, or handoff details"
-          />
-        </FormField>
+        <div className="rounded-md border border-zinc-200 bg-zinc-50 p-4 lg:col-span-2">
+          <h4 className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-500">
+            Shared production update
+          </h4>
+          <p className="mt-1 text-sm leading-6 text-zinc-600">
+            These fields apply to any fulfillment method. Method-specific
+            sections are grouped below because this queue view does not yet load
+            an explicit pickup vs shipping method.
+          </p>
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <FormField label="Provider notes">
+              <textarea
+                name="providerNotes"
+                defaultValue={details.providerNotes ?? ""}
+                className={textareaClassName}
+                placeholder="Production note visible to the merchant"
+              />
+            </FormField>
+            <FormField label="Estimated ready date">
+              <input
+                name="estimatedReadyDate"
+                type="date"
+                defaultValue={details.estimatedReadyDate ?? ""}
+                className={inputClassName}
+              />
+            </FormField>
+          </div>
+        </div>
+
+        <div className="rounded-md border border-amber-200 bg-amber-50 p-4">
+          <h4 className="text-sm font-semibold uppercase tracking-[0.16em] text-amber-700">
+            Pickup handoff fields
+          </h4>
+          <div className="mt-4 grid gap-4">
+            <FormField label="Pickup instructions">
+              <textarea
+                name="pickupInstructions"
+                defaultValue={details.pickupInstructions ?? ""}
+                className={textareaClassName}
+                placeholder="Where and how the merchant should pick up"
+              />
+            </FormField>
+            <FormField label="Ready-for-pickup note">
+              <textarea
+                name="readyForPickupNote"
+                defaultValue={details.readyForPickupNote ?? ""}
+                className={textareaClassName}
+                placeholder="Add when marking the order ready"
+              />
+            </FormField>
+          </div>
+        </div>
+
+        <div className="rounded-md border border-violet-200 bg-violet-50 p-4">
+          <h4 className="text-sm font-semibold uppercase tracking-[0.16em] text-violet-700">
+            Shipping handoff fields
+          </h4>
+          <div className="mt-4 grid gap-4">
+            <FormField label="Carrier">
+              <input
+                name="carrierName"
+                defaultValue={details.carrierName ?? ""}
+                className={inputClassName}
+                placeholder="UPS, FedEx, USPS, local courier"
+              />
+            </FormField>
+            <FormField label="Tracking number">
+              <input
+                name="trackingNumber"
+                defaultValue={details.trackingNumber ?? ""}
+                className={inputClassName}
+                placeholder="Tracking or courier reference"
+              />
+            </FormField>
+            <FormField label="Shipping note">
+              <textarea
+                name="shippingNote"
+                defaultValue={details.shippingNote ?? ""}
+                className={textareaClassName}
+                placeholder="Delivery notes, package count, or handoff details"
+              />
+            </FormField>
+          </div>
+        </div>
       </div>
 
       <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
