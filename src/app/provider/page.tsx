@@ -164,9 +164,16 @@ export default async function ProviderPage({
               activeFilter={queueFilter}
             />
           </div>
+          <QueueFilterContext
+            activeFilter={queueFilter}
+            visibleCount={filteredActiveAssignments.length}
+            totalCount={activeAssignments.length}
+          />
           <ActiveProductionQueue
             assignments={filteredActiveAssignments}
             hasProviderProfile={!!providerProfileId}
+            activeFilter={queueFilter}
+            totalActiveCount={activeAssignments.length}
           />
         </section>
 
@@ -1092,12 +1099,47 @@ function QueuePill({
   );
 }
 
+function QueueFilterContext({
+  activeFilter,
+  visibleCount,
+  totalCount,
+}: {
+  activeFilter: QueueFilter;
+  visibleCount: number;
+  totalCount: number;
+}) {
+  return (
+    <div className="mb-4 flex flex-col gap-2 rounded-md border border-zinc-200 bg-white px-4 py-3 text-sm shadow-sm sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <span className="font-semibold text-zinc-950">
+          Viewing: {getQueueFilterLabel(activeFilter)}
+        </span>
+        <span className="ml-2 text-zinc-500">
+          {visibleCount} of {totalCount} active jobs
+        </span>
+      </div>
+      {activeFilter !== "all" ? (
+        <Link
+          href="/provider"
+          className="font-semibold text-indigo-700 hover:text-indigo-900"
+        >
+          Back to All active
+        </Link>
+      ) : null}
+    </div>
+  );
+}
+
 function ActiveProductionQueue({
   assignments,
   hasProviderProfile,
+  activeFilter,
+  totalActiveCount,
 }: {
   assignments: ProviderAssignment[];
   hasProviderProfile: boolean;
+  activeFilter: QueueFilter;
+  totalActiveCount: number;
 }) {
   if (!hasProviderProfile) {
     return (
@@ -1117,6 +1159,10 @@ function ActiveProductionQueue({
   }
 
   if (assignments.length === 0) {
+    if (totalActiveCount > 0 && activeFilter !== "all") {
+      return <FilteredQueueEmptyState activeFilter={activeFilter} />;
+    }
+
     return (
       <Card className="border-dashed bg-gradient-to-br from-white to-zinc-50">
         <div className="flex gap-4">
@@ -1138,6 +1184,38 @@ function ActiveProductionQueue({
   }
 
   return <AcceptedOrders assignments={assignments} />;
+}
+
+function FilteredQueueEmptyState({
+  activeFilter,
+}: {
+  activeFilter: QueueFilter;
+}) {
+  return (
+    <Card className="rounded-md border-dashed border-zinc-300 bg-white">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex gap-4">
+          <ProviderIconCircle>
+            <PackageCheck className="h-5 w-5" />
+          </ProviderIconCircle>
+          <div>
+            <h3 className="text-xl font-semibold text-zinc-950">
+              {getQueueEmptyTitle(activeFilter)}
+            </h3>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-600">
+              {getQueueEmptyDescription(activeFilter)}
+            </p>
+          </div>
+        </div>
+        <Link
+          href="/provider"
+          className="inline-flex h-10 shrink-0 items-center justify-center rounded-md bg-indigo-950 px-4 text-sm font-semibold text-white shadow-sm shadow-indigo-950/20 transition hover:bg-indigo-900"
+        >
+          View all active
+        </Link>
+      </div>
+    </Card>
+  );
 }
 
 function LegacyPendingOrders({
@@ -1680,6 +1758,45 @@ function getQueueFilter(value: string): QueueFilter {
   }
 
   return "all";
+}
+
+function getQueueFilterLabel(filter: QueueFilter) {
+  switch (filter) {
+    case "ready":
+      return "Ready to start";
+    case "production":
+      return "In production";
+    case "handoff":
+      return "Handoff";
+    default:
+      return "All active";
+  }
+}
+
+function getQueueEmptyTitle(filter: QueueFilter) {
+  switch (filter) {
+    case "ready":
+      return "No jobs ready to start";
+    case "production":
+      return "No jobs currently in production";
+    case "handoff":
+      return "No jobs ready for handoff";
+    default:
+      return "No active jobs";
+  }
+}
+
+function getQueueEmptyDescription(filter: QueueFilter) {
+  switch (filter) {
+    case "ready":
+      return "All active jobs have either started production or moved further along. Use All active to review the full queue.";
+    case "production":
+      return "No paid jobs are currently marked in production. Use All active to see jobs waiting to start or ready for handoff.";
+    case "handoff":
+      return "No jobs are currently ready for pickup, shipment, or closeout. Use All active to review the rest of the queue.";
+    default:
+      return "When merchants pay for selected providers, jobs will appear here automatically.";
+  }
 }
 
 function filterProviderAssignments(
