@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import {
   BadgeCheck,
@@ -104,6 +105,17 @@ export default async function ProviderPage({
   ]);
   const savedFlag = getStringParam(resolvedSearchParams.saved);
   const sourceFlag = getStringParam(resolvedSearchParams.source);
+  const queueFilter = getQueueFilter(getStringParam(resolvedSearchParams.queue));
+  const activeAssignments = acceptedAssignments.filter(
+    (assignment) => assignment.orderStatus !== "completed",
+  );
+  const completedAssignments = acceptedAssignments.filter(
+    (assignment) => assignment.orderStatus === "completed",
+  );
+  const filteredActiveAssignments = filterProviderAssignments(
+    activeAssignments,
+    queueFilter,
+  );
 
   const availableCapacity =
     Number.parseInt(onboardingData.values.dailyCapacityUnits, 10) -
@@ -121,7 +133,7 @@ export default async function ProviderPage({
             values={onboardingData.values}
             capacityUsePercent={capacityUsePercent}
             availableCapacity={availableCapacity}
-            activeJobCount={acceptedAssignments.length}
+            activeJobCount={activeAssignments.length}
             pendingJobCount={pendingAssignments.length}
           />
           <div className="mt-5">
@@ -146,13 +158,40 @@ export default async function ProviderPage({
                 fulfillment details current.
               </p>
             </div>
-            <QueueSummaryPills assignments={acceptedAssignments} />
+            <QueueSummaryPills
+              assignments={activeAssignments}
+              completedCount={completedAssignments.length}
+              activeFilter={queueFilter}
+            />
           </div>
           <ActiveProductionQueue
-            assignments={acceptedAssignments}
+            assignments={filteredActiveAssignments}
             hasProviderProfile={!!providerProfileId}
           />
         </section>
+
+        {completedAssignments.length > 0 ? (
+          <section id="completed" className="pb-12">
+            <details className="rounded-md border border-zinc-200 bg-white shadow-sm shadow-zinc-950/5">
+              <summary className="cursor-pointer list-none px-5 py-4 marker:hidden">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold uppercase tracking-[0.2em] text-zinc-500">
+                      Completed jobs
+                    </p>
+                    <h2 className="mt-1 text-2xl font-semibold text-zinc-950">
+                      Recently completed
+                    </h2>
+                  </div>
+                  <Badge tone="brand">{completedAssignments.length} complete</Badge>
+                </div>
+              </summary>
+              <div className="border-t border-zinc-200 p-5">
+                <AcceptedOrders assignments={completedAssignments} />
+              </div>
+            </details>
+          </section>
+        ) : null}
 
         {pendingAssignments.length > 0 && (
           <section className="pb-12">
@@ -961,7 +1000,17 @@ function ProviderQueueIdentity({
   );
 }
 
-function QueueSummaryPills({ assignments }: { assignments: ProviderAssignment[] }) {
+type QueueFilter = "all" | "ready" | "production" | "handoff";
+
+function QueueSummaryPills({
+  assignments,
+  completedCount,
+  activeFilter,
+}: {
+  assignments: ProviderAssignment[];
+  completedCount: number;
+  activeFilter: QueueFilter;
+}) {
   const statusCounts = assignments.reduce(
     (counts, assignment) => {
       counts.total += 1;
@@ -978,25 +1027,68 @@ function QueueSummaryPills({ assignments }: { assignments: ProviderAssignment[] 
     },
     { total: 0, readyToStart: 0, inProduction: 0, handoff: 0 },
   );
+  const filters: Array<{ label: string; value: QueueFilter; count: number }> = [
+    { label: "All active", value: "all", count: statusCounts.total },
+    { label: "Ready to start", value: "ready", count: statusCounts.readyToStart },
+    { label: "In production", value: "production", count: statusCounts.inProduction },
+    { label: "Handoff", value: "handoff", count: statusCounts.handoff },
+  ];
 
   return (
     <div className="flex flex-wrap gap-2">
-      <QueuePill label="All active" value={statusCounts.total} />
-      <QueuePill label="Ready to start" value={statusCounts.readyToStart} />
-      <QueuePill label="In production" value={statusCounts.inProduction} />
-      <QueuePill label="Handoff" value={statusCounts.handoff} />
+      {filters.map((filter) => (
+        <QueuePill
+          key={filter.value}
+          label={filter.label}
+          value={filter.count}
+          href={filter.value === "all" ? "/provider" : `/provider?queue=${filter.value}`}
+          active={activeFilter === filter.value}
+        />
+      ))}
+      <QueuePill
+        label="Completed"
+        value={completedCount}
+        href="/provider#completed"
+        active={false}
+        muted
+      />
     </div>
   );
 }
 
-function QueuePill({ label, value }: { label: string; value: number }) {
+function QueuePill({
+  label,
+  value,
+  href,
+  active,
+  muted = false,
+}: {
+  label: string;
+  value: number;
+  href: string;
+  active: boolean;
+  muted?: boolean;
+}) {
   return (
-    <div className="inline-flex h-10 items-center gap-2 rounded-md border border-zinc-200 bg-white px-3 text-sm font-semibold text-zinc-700 shadow-sm">
+    <Link
+      href={href}
+      className={`inline-flex h-10 items-center gap-2 rounded-md border px-3 text-sm font-semibold shadow-sm transition ${
+        active
+          ? "border-zinc-950 bg-zinc-950 text-white"
+          : muted
+            ? "border-zinc-200 bg-zinc-50 text-zinc-500 hover:bg-white"
+            : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50"
+      }`}
+    >
       <span>{label}</span>
-      <span className="rounded-full bg-zinc-950 px-2 py-0.5 text-xs text-white">
+      <span
+        className={`rounded-full px-2 py-0.5 text-xs ${
+          active ? "bg-white/15 text-white" : "bg-zinc-950 text-white"
+        }`}
+      >
         {value}
       </span>
-    </div>
+    </Link>
   );
 }
 
@@ -1580,6 +1672,40 @@ function getCapacityUsePercent(values: ProviderOnboardingFormValues) {
   }
 
   return Math.round((currentCapacityUsed / dailyCapacityUnits) * 100);
+}
+
+function getQueueFilter(value: string): QueueFilter {
+  if (value === "ready" || value === "production" || value === "handoff") {
+    return value;
+  }
+
+  return "all";
+}
+
+function filterProviderAssignments(
+  assignments: ProviderAssignment[],
+  filter: QueueFilter,
+) {
+  switch (filter) {
+    case "ready":
+      return assignments.filter(
+        (assignment) =>
+          assignment.orderStatus === "paid" ||
+          assignment.orderStatus === "accepted",
+      );
+    case "production":
+      return assignments.filter(
+        (assignment) => assignment.orderStatus === "in_production",
+      );
+    case "handoff":
+      return assignments.filter(
+        (assignment) =>
+          assignment.orderStatus === "ready" ||
+          assignment.orderStatus === "shipped",
+      );
+    default:
+      return assignments;
+  }
 }
 
 function getStringParam(value: string | string[] | undefined) {
